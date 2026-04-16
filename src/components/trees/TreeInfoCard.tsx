@@ -105,7 +105,18 @@ export function TreeInfoCard({ tree, rowLabel, rowId, orchardId, allRows }: Tree
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="position">Position</Label>
+          <Input
+            id="position"
+            name="position"
+            type="number"
+            min="1"
+            defaultValue={tree.position}
+            required
+          />
+        </div>
         <div className="space-y-1.5">
           <Label htmlFor="rootstock">Rootstock</Label>
           <Input id="rootstock" name="rootstock" defaultValue={tree.rootstock ?? ''} placeholder="e.g. M.9, Geneva 41" />

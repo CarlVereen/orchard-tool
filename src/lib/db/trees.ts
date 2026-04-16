@@ -31,10 +31,24 @@ export async function updateTree(
   id: string,
   updates: Partial<Pick<Tree,
     'variety' | 'species' | 'planted_at' | 'notes' |
-    'rootstock' | 'condition' | 'condition_notes' | 'watering_cycle_days'
+    'rootstock' | 'condition' | 'condition_notes' | 'watering_cycle_days' | 'position'
   >>
 ): Promise<void> {
   const supabase = createClient()
+  // Check for position conflict within the same row before updating
+  if (updates.position !== undefined) {
+    const { data: tree } = await supabase.from('trees').select('row_id').eq('id', id).single()
+    if (tree) {
+      const { data: conflict } = await supabase
+        .from('trees')
+        .select('id')
+        .eq('row_id', tree.row_id)
+        .eq('position', updates.position)
+        .neq('id', id)
+        .maybeSingle()
+      if (conflict) throw new Error(`Position ${updates.position} is already occupied in this row`)
+    }
+  }
   const { error } = await supabase.from('trees').update(updates).eq('id', id)
   if (error) throw error
 }

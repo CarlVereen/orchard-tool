@@ -82,6 +82,7 @@ export async function updateTreeAction(treeId: string, rowId: string, formData: 
   const condition = formData.get('condition') as TreeCondition | undefined
   const conditionNotes = formData.get('condition_notes') as string | undefined
   const wateringCycleRaw = formData.get('watering_cycle_days') as string | undefined
+  const positionRaw = formData.get('position') as string | undefined
 
   await updateTree(treeId, {
     variety: variety?.trim() ?? null,
@@ -92,9 +93,11 @@ export async function updateTreeAction(treeId: string, rowId: string, formData: 
     condition: condition ?? 'good',
     condition_notes: conditionNotes?.trim() ?? null,
     watering_cycle_days: wateringCycleRaw ? parseInt(wateringCycleRaw) : null,
+    position: positionRaw ? parseInt(positionRaw) : undefined,
   })
   revalidatePath(`/trees/${treeId}`)
   revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/')
 }
 
 export async function deleteTreeAction(treeId: string, rowId: string) {
