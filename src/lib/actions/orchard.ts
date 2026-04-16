@@ -99,7 +99,8 @@ export async function updateTreeAction(treeId: string, rowId: string, formData: 
 export async function deleteTreeAction(treeId: string, rowId: string) {
   await deleteTree(treeId)
   revalidatePath(`/rows/${rowId}`)
-  redirect(`/rows/${rowId}`)
+  revalidatePath('/')
+  revalidatePath('/attention')
 }
 
 export async function archiveTreeAction(treeId: string, rowId: string, formData: FormData) {
