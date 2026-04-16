@@ -32,7 +32,7 @@ export function TreeCell({ tree, selectable = false, selected = false, onSelect,
           }
         `}
       >
-        <span className="absolute top-1.5 right-1.5 text-[9px] font-medium text-stone-400 leading-none">
+        <span className="absolute top-1.5 right-1.5 text-xs font-semibold text-stone-400 leading-none">
           {selected
             ? <span className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12"><path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg></span>
             : tree.position
@@ -59,7 +59,7 @@ export function TreeCell({ tree, selectable = false, selected = false, onSelect,
         ${compact ? 'h-[80px] sm:min-w-[100px]' : 'h-[96px] sm:min-w-[120px]'}
       `}
     >
-      <span className="absolute top-1.5 right-1.5 text-[9px] font-medium text-stone-400 leading-none">
+      <span className="absolute top-1.5 right-1.5 text-xs font-semibold text-stone-400 leading-none">
         {tree.position}
       </span>
       <span className="text-xs font-medium text-stone-800 leading-tight line-clamp-2 pr-5">
