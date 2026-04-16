@@ -27,7 +27,7 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
   const handleDelete = async () => {
     setDeleting(true)
     await deleteTreeAction(treeId, rowId)
-    router.back()
+    router.push(`/rows/${rowId}`)
   }
   const archiveAction = archiveTreeAction.bind(null, treeId, rowId)
   const moveAction = moveTreeAction.bind(null, treeId, rowId)
