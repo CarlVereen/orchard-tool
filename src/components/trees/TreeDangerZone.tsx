@@ -135,20 +135,25 @@ export function TreeDangerZone({ treeId, rowId, allRows }: TreeDangerZoneProps) 
           className="bg-stone-50 border border-stone-200 rounded-lg p-4 space-y-3"
         >
           <p className="text-sm text-stone-700 font-medium">Move to another row</p>
-          <p className="text-xs text-stone-400">The tree will be added to the end of the selected row.</p>
-          <div className="space-y-1.5">
-            <Label htmlFor="new_row_id">Target row</Label>
-            <select
-              id="new_row_id"
-              name="new_row_id"
-              required
-              className="w-full h-9 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-400"
-            >
-              <option value="">Select row…</option>
-              {otherRows.map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new_row_id">Target row</Label>
+              <select
+                id="new_row_id"
+                name="new_row_id"
+                required
+                className="w-full h-9 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-400"
+              >
+                <option value="">Select row…</option>
+                {otherRows.map((r) => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new_position">Position</Label>
+              <Input id="new_position" name="new_position" type="number" min="1" placeholder="e.g. 12" required />
+            </div>
           </div>
           {moveError && (
             <p className="text-xs text-red-500">{moveError}</p>

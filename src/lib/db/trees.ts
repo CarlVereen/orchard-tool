@@ -69,17 +69,17 @@ export async function archiveTree(id: string, reason: string): Promise<void> {
   if (error) throw error
 }
 
-export async function moveTree(id: string, newRowId: string): Promise<void> {
+export async function moveTree(id: string, newRowId: string, newPosition: number): Promise<void> {
   const supabase = createClient()
-  // Auto-assign next available position in the target row
-  const { data: existing } = await supabase
+  // Check for position conflict in target row
+  const { data: conflict } = await supabase
     .from('trees')
-    .select('position')
+    .select('id')
     .eq('row_id', newRowId)
-    .is('archived_at', null)
-    .order('position', { ascending: false })
-    .limit(1)
-  const newPosition = (existing?.[0]?.position ?? 0) + 1
+    .eq('position', newPosition)
+    .neq('id', id)
+    .maybeSingle()
+  if (conflict) throw new Error(`Position ${newPosition} is already occupied in that row`)
   const { error } = await supabase
     .from('trees')
     .update({ row_id: newRowId, position: newPosition })
