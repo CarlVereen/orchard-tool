@@ -111,9 +111,7 @@ export async function archiveTreeAction(treeId: string, rowId: string, formData:
   revalidatePath('/attention')
 }
 
-export async function moveTreeAction(treeId: string, oldRowId: string, formData: FormData) {
-  const newRowId = formData.get('new_row_id') as string
-  const newPosition = parseInt(formData.get('new_position') as string)
+export async function moveTreeAction(treeId: string, oldRowId: string, newRowId: string, newPosition: number) {
   if (!newRowId) throw new Error('Target row is required')
   if (!newPosition || isNaN(newPosition)) throw new Error('Position is required')
   await moveTree(treeId, newRowId, newPosition)
