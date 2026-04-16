@@ -41,6 +41,21 @@ export async function updateTree(
 
 export async function deleteTree(id: string): Promise<void> {
   const supabase = createClient()
+
+  // Remove photo files from storage before deleting DB records
+  const { data: photos } = await supabase
+    .from('tree_photos')
+    .select('storage_path')
+    .eq('tree_id', id)
+  if (photos?.length) {
+    await supabase.storage.from('tree-photos').remove(photos.map((p) => p.storage_path))
+  }
+
+  // Delete child records explicitly (tree_notes/tree_photos may lack CASCADE)
+  await supabase.from('tree_photos').delete().eq('tree_id', id)
+  await supabase.from('tree_notes').delete().eq('tree_id', id)
+  await supabase.from('logs').delete().eq('tree_id', id)
+
   const { error } = await supabase.from('trees').delete().eq('id', id)
   if (error) throw error
 }
