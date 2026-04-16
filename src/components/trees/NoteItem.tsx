@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Textarea } from '@/components/ui/textarea'
 import { updateNoteAction, deleteNoteAction } from '@/lib/actions/orchard'
 import type { TreeNote } from '@/types/orchard'
@@ -34,7 +35,7 @@ export function NoteItem({ note }: NoteItemProps) {
       >
         <Textarea name="content" defaultValue={note.content} rows={3} required autoFocus />
         <div className="flex gap-2">
-          <Button type="submit" size="sm">Save</Button>
+          <SubmitButton size="sm">Save</SubmitButton>
           <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
         </div>
       </form>
@@ -57,7 +58,7 @@ export function NoteItem({ note }: NoteItemProps) {
           {confirmDelete ? (
             <>
               <form action={deleteAction} className="inline">
-                <button type="submit" className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 transition-colors">
+                <button type="submit" className="text-xs text-red-500 hover:text-red-700 px-2 py-0.5 transition-all active:scale-[0.97]">
                   Confirm
                 </button>
               </form>

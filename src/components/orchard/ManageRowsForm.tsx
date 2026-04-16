@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { createRowAction, updateRowAction, deleteRowAction } from '@/lib/actions/orchard'
 import type { Orchard, Row } from '@/types/orchard'
@@ -27,7 +28,7 @@ export function ManageRowsForm({ orchard, rows }: ManageRowsFormProps) {
               className="flex-1 flex gap-2"
             >
               <Input name="label" defaultValue={row.label} required className="flex-1" />
-              <Button type="submit" size="sm">Save</Button>
+              <SubmitButton size="sm">Save</SubmitButton>
               <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                 Cancel
               </Button>
@@ -39,14 +40,13 @@ export function ManageRowsForm({ orchard, rows }: ManageRowsFormProps) {
                 Edit
               </Button>
               <form action={deleteRowAction.bind(null, row.id)}>
-                <Button
-                  type="submit"
+                <SubmitButton
                   variant="ghost"
                   size="sm"
                   className="text-red-500 hover:text-red-700 hover:bg-red-50"
                 >
                   Delete
-                </Button>
+                </SubmitButton>
               </form>
             </>
           )}
@@ -61,7 +61,7 @@ export function ManageRowsForm({ orchard, rows }: ManageRowsFormProps) {
         className="bg-white border border-dashed border-stone-300 rounded-lg p-4 flex gap-2"
       >
         <Input name="label" placeholder="New row label, e.g. Row 4" required className="flex-1" />
-        <Button type="submit" variant="outline">Add Row</Button>
+        <SubmitButton variant="outline">Add Row</SubmitButton>
       </form>
     </div>
   )

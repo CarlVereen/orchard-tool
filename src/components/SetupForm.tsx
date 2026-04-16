@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,9 +46,9 @@ export function SetupForm({ orchard }: SetupFormProps) {
           rows={3}
         />
       </div>
-      <Button type="submit" className="w-full">
+      <SubmitButton className="w-full">
         {orchard ? 'Save Changes' : 'Create Orchard'}
-      </Button>
+      </SubmitButton>
     </form>
   )
 }

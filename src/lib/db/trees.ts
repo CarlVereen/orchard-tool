@@ -20,7 +20,7 @@ export async function createTree(
   const supabase = createClient()
   const { data, error } = await supabase
     .from('trees')
-    .insert({ row_id: rowId, position, ...fields })
+    .insert({ row_id: rowId, position, condition: 'good', ...fields })
     .select()
     .single()
   if (error) throw error

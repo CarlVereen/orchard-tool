@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
-import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Textarea } from '@/components/ui/textarea'
 import { addNoteAction } from '@/lib/actions/orchard'
 
@@ -28,7 +28,7 @@ export function AddNoteForm({ treeId }: AddNoteFormProps) {
         rows={3}
         required
       />
-      <Button type="submit" size="sm">Add Note</Button>
+      <SubmitButton size="sm">Add Note</SubmitButton>
     </form>
   )
 }

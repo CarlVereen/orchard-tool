@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { deleteTreeAction, archiveTreeAction, moveTreeAction } from '@/lib/actions/orchard'
@@ -44,21 +45,21 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
           <button
             type="button"
             onClick={() => setMode('archive')}
-            className="text-sm px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:border-stone-400 transition-colors"
+            className="text-sm px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:border-stone-400 transition-all active:scale-[0.97]"
           >
             Archive tree…
           </button>
           <button
             type="button"
             onClick={() => setMode('move')}
-            className="text-sm px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:border-stone-400 transition-colors"
+            className="text-sm px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 hover:border-stone-400 transition-all active:scale-[0.97]"
           >
             Move to row…
           </button>
           <button
             type="button"
             onClick={() => setMode('delete-confirm')}
-            className="text-sm px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-colors"
+            className="text-sm px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 transition-all active:scale-[0.97]"
           >
             Delete tree
           </button>
@@ -71,9 +72,9 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
           <p className="text-xs text-red-500">All logs, notes, and photos will be deleted. This cannot be undone.</p>
           <div className="flex gap-2">
             <form action={deleteAction}>
-              <Button type="submit" variant="destructive" size="sm">
+              <SubmitButton variant="destructive" size="sm">
                 Yes, delete
-              </Button>
+              </SubmitButton>
             </form>
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode('idle')}>
               Cancel
@@ -94,7 +95,7 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
             <Input id="reason" name="reason" placeholder="e.g. tree died, removed, replanted…" required />
           </div>
           <div className="flex gap-2">
-            <Button type="submit" size="sm">Archive</Button>
+            <SubmitButton size="sm">Archive</SubmitButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode('idle')}>Cancel</Button>
           </div>
         </form>
@@ -131,7 +132,7 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
             </div>
           </div>
           <div className="flex gap-2">
-            <Button type="submit" size="sm">Move</Button>
+            <SubmitButton size="sm">Move</SubmitButton>
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode('idle')}>Cancel</Button>
           </div>
         </form>

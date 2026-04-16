@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RowHeader } from './RowHeader'
 import { RowGrid } from './RowGrid'
 import { BulkLogSheet } from '@/components/logs/BulkLogSheet'
@@ -16,6 +16,12 @@ export function RowDetail({ row, addAtPosition }: RowDetailProps) {
   const [bulkIds, setBulkIds] = useState<string[]>([])
   const [bulkOpen, setBulkOpen] = useState(false)
   const [addTreePos, setAddTreePos] = useState<number | null>(addAtPosition ?? null)
+
+  useEffect(() => {
+    if (addAtPosition !== undefined) {
+      setAddTreePos(addAtPosition)
+    }
+  }, [addAtPosition])
 
   const handleBulkLog = (ids: string[]) => {
     setBulkIds(ids)

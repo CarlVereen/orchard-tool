@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -151,9 +152,9 @@ export function LogForm({ action, onSuccess, submitLabel = 'Add Log' }: LogFormP
         />
       </div>
 
-      <Button type="submit" className="w-full">
+      <SubmitButton className="w-full">
         {submitLabel}
-      </Button>
+      </SubmitButton>
     </form>
   )
 }
