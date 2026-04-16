@@ -1,0 +1,88 @@
+export type LogType = 'water' | 'fertilize' | 'production' | 'note' | 'scout' | 'prune'
+export type TreeCondition = 'good' | 'fair' | 'poor' | 'dead'
+
+export interface Orchard {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+}
+
+export interface Row {
+  id: string
+  orchard_id: string
+  label: string
+  sort_order: number
+  created_at: string
+}
+
+export interface Tree {
+  id: string
+  row_id: string
+  position: number
+  variety: string | null
+  species: string | null
+  planted_at: string | null
+  notes: string | null
+  rootstock: string | null
+  condition: TreeCondition
+  condition_notes: string | null
+  watering_cycle_days: number | null
+  archived_at: string | null
+  archive_reason: string | null
+  created_at: string
+}
+
+export interface Log {
+  id: string
+  tree_id: string
+  log_type: LogType
+  quantity: number | null
+  unit: string | null
+  notes: string | null
+  batch_id: string | null
+  target: string | null       // scout: pest/disease observed
+  severity: number | null     // scout: 0-5 severity rating
+  logged_at: string
+  created_at: string
+}
+
+export interface TreeNote {
+  id: string
+  tree_id: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TreePhoto {
+  id: string
+  tree_id: string
+  storage_path: string
+  caption: string | null
+  taken_at: string
+  created_at: string
+}
+
+export interface TreeSummary {
+  last_watered: string | null
+  last_fertilized: string | null
+  last_pruned: string | null
+  season_production_total: number | null
+  season_production_unit: string | null
+  logs_this_month: number
+  next_water_due_in_days: number | null
+}
+
+// Enriched types for joined queries
+export interface TreeWithLastLog extends Tree {
+  last_log: Log | null
+}
+
+export interface RowWithTrees extends Row {
+  trees: TreeWithLastLog[]
+}
+
+export interface LogWithTree extends Log {
+  tree: Tree & { row: Row }
+}
