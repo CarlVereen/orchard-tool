@@ -22,11 +22,10 @@ export function AddTreeDialog({ rowId, position, open, onOpenChange }: AddTreeDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Tree — Position {position}</DialogTitle>
+          <DialogTitle>Add Tree</DialogTitle>
         </DialogHeader>
         <form
           action={async (fd) => {
-            fd.append('position', String(position))
             await action(fd)
             onOpenChange(false)
           }}
@@ -42,9 +41,15 @@ export function AddTreeDialog({ rowId, position, open, onOpenChange }: AddTreeDi
               <Input id="species" name="species" placeholder="e.g. Apple" />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="planted_at">Date Planted</Label>
-            <Input id="planted_at" name="planted_at" type="date" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="position">Position</Label>
+              <Input id="position" name="position" type="number" min="1" defaultValue={position} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="planted_at">Date Planted</Label>
+              <Input id="planted_at" name="planted_at" type="date" />
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes (optional)</Label>

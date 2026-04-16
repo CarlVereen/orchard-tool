@@ -69,6 +69,7 @@ export async function createTreeAction(rowId: string, formData: FormData) {
     notes: notes?.trim() || undefined,
   })
   revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/')
   return tree
 }
 
