@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,19 +11,19 @@ import type { Row } from '@/types/orchard'
 interface TreeDangerZoneProps {
   treeId: string
   rowId: string
-  orchardId: string
+  allRows: Row[]
 }
 
 type Mode = 'idle' | 'delete-confirm' | 'archive' | 'move'
 
-export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps) {
+export function TreeDangerZone({ treeId, rowId, allRows }: TreeDangerZoneProps) {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('idle')
   const [deleting, setDeleting] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [moving, setMoving] = useState(false)
-  const [rows, setRows] = useState<Row[]>([])
-  const [loadingRows, setLoadingRows] = useState(false)
+
+  const otherRows = allRows.filter((r) => r.id !== rowId)
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -32,17 +32,6 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
   }
   const archiveAction = archiveTreeAction.bind(null, treeId, rowId)
   const moveAction = moveTreeAction.bind(null, treeId, rowId)
-
-  // Load rows when move mode is opened
-  useEffect(() => {
-    if (mode !== 'move') return
-    setLoadingRows(true)
-    fetch(`/api/rows?orchardId=${orchardId}`)
-      .then((r) => r.json())
-      .then((data: Row[]) => setRows(data.filter((r) => r.id !== rowId)))
-      .catch(() => setRows([]))
-      .finally(() => setLoadingRows(false))
-  }, [mode, orchardId, rowId])
 
   return (
     <div className="border-t border-red-100 mt-6 pt-5 space-y-3">
@@ -142,21 +131,17 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="new_row_id">Target row</Label>
-              {loadingRows ? (
-                <p className="text-xs text-stone-400">Loading…</p>
-              ) : (
-                <select
-                  id="new_row_id"
-                  name="new_row_id"
-                  required
-                  className="w-full h-9 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-400"
-                >
-                  <option value="">Select row…</option>
-                  {rows.map((r) => (
-                    <option key={r.id} value={r.id}>{r.label}</option>
-                  ))}
-                </select>
-              )}
+              <select
+                id="new_row_id"
+                name="new_row_id"
+                required
+                className="w-full h-9 rounded-md border border-stone-200 bg-white px-3 text-sm text-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-400"
+              >
+                <option value="">Select row…</option>
+                {otherRows.map((r) => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="new_position">Position</Label>

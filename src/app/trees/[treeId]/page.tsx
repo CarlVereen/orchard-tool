@@ -4,6 +4,7 @@ import { getTree, getTreeSummary } from '@/lib/db/trees'
 import { getLogsForTree } from '@/lib/db/logs'
 import { getNotesByTree } from '@/lib/db/notes'
 import { getPhotosByTree } from '@/lib/db/photos'
+import { getRows } from '@/lib/db/rows'
 import { createClient } from '@/lib/supabase/server'
 import { TreeInfoCard } from '@/components/trees/TreeInfoCard'
 import { TreeSummaryStrip } from '@/components/trees/TreeSummaryStrip'
@@ -18,22 +19,24 @@ export default async function TreePage({ params }: TreePageProps) {
   const tree = await getTree(params.treeId).catch(() => null)
   if (!tree) notFound()
 
-  const [logs, notes, photos, rowData, summary] = await Promise.all([
-    getLogsForTree(tree.id),
-    getNotesByTree(tree.id),
-    getPhotosByTree(tree.id),
-    createClient()
-      .from('rows')
-      .select('id, label, orchard_id')
-      .eq('id', tree.row_id)
-      .single()
-      .then((r) => r.data),
-    getTreeSummary(tree.id, tree.watering_cycle_days),
-  ])
+  const rowData = await createClient()
+    .from('rows')
+    .select('id, label, orchard_id')
+    .eq('id', tree.row_id)
+    .single()
+    .then((r) => r.data)
 
   const rowLabel = rowData?.label ?? 'Row'
   const rowId = rowData?.id ?? tree.row_id
   const orchardId = rowData?.orchard_id ?? ''
+
+  const [logs, notes, photos, allRows, summary] = await Promise.all([
+    getLogsForTree(tree.id),
+    getNotesByTree(tree.id),
+    getPhotosByTree(tree.id),
+    getRows(orchardId),
+    getTreeSummary(tree.id, tree.watering_cycle_days),
+  ])
 
   return (
     <div className="space-y-6">
@@ -50,7 +53,7 @@ export default async function TreePage({ params }: TreePageProps) {
       <TreeSummaryStrip summary={summary} />
 
       {/* Info card (edit includes danger zone) */}
-      <TreeInfoCard tree={tree} rowLabel={rowLabel} rowId={rowId} orchardId={orchardId} />
+      <TreeInfoCard tree={tree} rowLabel={rowLabel} rowId={rowId} orchardId={orchardId} allRows={allRows} />
 
       {/* Tabs: Activity / Notes / Photos */}
       <TreeTabs

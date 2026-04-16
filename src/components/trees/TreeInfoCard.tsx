@@ -8,13 +8,14 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { updateTreeAction } from '@/lib/actions/orchard'
 import { TreeDangerZone } from './TreeDangerZone'
-import type { Tree, TreeCondition } from '@/types/orchard'
+import type { Tree, TreeCondition, Row } from '@/types/orchard'
 
 interface TreeInfoCardProps {
   tree: Tree
   rowLabel: string
   rowId: string
   orchardId: string
+  allRows: Row[]
 }
 
 const CONDITIONS: { value: TreeCondition; label: string; color: string }[] = [
@@ -28,7 +29,7 @@ function conditionStyle(cond: TreeCondition) {
   return CONDITIONS.find((c) => c.value === cond)?.color ?? ''
 }
 
-export function TreeInfoCard({ tree, rowLabel, rowId, orchardId }: TreeInfoCardProps) {
+export function TreeInfoCard({ tree, rowLabel, rowId, orchardId, allRows }: TreeInfoCardProps) {
   const [editing, setEditing] = useState(false)
   const [condition, setCondition] = useState<TreeCondition>(tree.condition ?? 'good')
 
@@ -166,7 +167,7 @@ export function TreeInfoCard({ tree, rowLabel, rowId, orchardId }: TreeInfoCardP
         <Button type="button" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
       </div>
 
-      <TreeDangerZone treeId={tree.id} rowId={rowId} orchardId={orchardId} />
+      <TreeDangerZone treeId={tree.id} rowId={rowId} allRows={allRows} />
     </form>
   )
 }
