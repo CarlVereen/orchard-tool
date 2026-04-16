@@ -86,3 +86,37 @@ export interface RowWithTrees extends Row {
 export interface LogWithTree extends Log {
   tree: Tree & { row: Row }
 }
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+export type TaskTargetScope = 'all' | 'rows' | 'trees'
+
+export interface TaskTemplate {
+  id: string
+  orchard_id: string
+  title: string
+  description: string | null
+  schedule_type: 'annual' | 'monthly'
+  month_start: number
+  month_end: number
+  stagger_by_row: boolean
+  target_scope: TaskTargetScope
+  log_type: LogType | null
+  active: boolean
+  created_at: string
+  row_ids: string[]
+  tree_ids: string[]
+}
+
+export interface TreeTask {
+  id: string
+  tree_id: string
+  template_id: string | null
+  title: string
+  log_type: LogType | null
+  due_date: string | null
+  completed_at: string | null
+  period: string | null
+  notes: string | null
+  created_at: string
+}

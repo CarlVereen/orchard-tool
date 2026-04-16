@@ -8,7 +8,17 @@ import { createTree, updateTree, deleteTree, archiveTree, moveTree } from '@/lib
 import { insertLog, insertLogsForTrees, deleteLog } from '@/lib/db/logs'
 import { createNote, updateNote, deleteNote } from '@/lib/db/notes'
 import { createPhoto, deletePhoto } from '@/lib/db/photos'
-import type { LogType, TreeCondition } from '@/types/orchard'
+import {
+  createManualTask,
+  completeTask,
+  uncompleteTask,
+  deleteTask,
+  createTemplate,
+  updateTemplate,
+  toggleTemplateActive,
+  deleteTemplate,
+} from '@/lib/db/tasks'
+import type { LogType, TreeCondition, TaskTargetScope } from '@/types/orchard'
 
 // ── Orchard ──────────────────────────────────────────────────────────────────
 
@@ -216,4 +226,122 @@ export async function addPhotoMetaAction(treeId: string, storagePath: string, ca
 export async function deletePhotoAction(photoId: string, storagePath: string, treeId: string) {
   await deletePhoto(photoId, storagePath)
   revalidatePath(`/trees/${treeId}`)
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+export async function createManualTaskAction(treeId: string, formData: FormData) {
+  const title = (formData.get('title') as string)?.trim()
+  if (!title) throw new Error('Task title is required')
+  const logType = (formData.get('log_type') as LogType | '') || undefined
+  const dueDate = (formData.get('due_date') as string) || undefined
+  const notes = (formData.get('notes') as string)?.trim() || undefined
+  await createManualTask(treeId, title, logType || undefined, dueDate, notes)
+  revalidatePath(`/trees/${treeId}`)
+  revalidatePath('/')
+}
+
+export async function completeTaskAction(taskId: string, treeId: string, rowId: string) {
+  const task = await completeTask(taskId)
+  if (task.log_type) {
+    await insertLog(treeId, task.log_type, { notes: task.title })
+  }
+  revalidatePath(`/trees/${treeId}`)
+  revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/')
+  revalidatePath('/attention')
+}
+
+export async function uncompleteTaskAction(taskId: string, treeId: string) {
+  await uncompleteTask(taskId)
+  revalidatePath(`/trees/${treeId}`)
+  revalidatePath('/')
+}
+
+export async function deleteTaskAction(taskId: string, treeId: string) {
+  await deleteTask(taskId)
+  revalidatePath(`/trees/${treeId}`)
+  revalidatePath('/')
+}
+
+// ── Task Templates ────────────────────────────────────────────────────────────
+
+export async function createTemplateAction(
+  orchardId: string,
+  formData: FormData,
+  rowIds: string[],
+  treeIds: string[]
+) {
+  const title = (formData.get('title') as string)?.trim()
+  if (!title) throw new Error('Template title is required')
+  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly'
+  const monthStart = parseInt(formData.get('month_start') as string) || 1
+  const monthEnd = parseInt(formData.get('month_end') as string) || 12
+  const staggerByRow = formData.get('stagger_by_row') === 'true'
+  const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
+  const logType = (formData.get('log_type') as LogType | '') || null
+
+  await createTemplate(
+    orchardId,
+    {
+      title,
+      description: (formData.get('description') as string)?.trim() || null,
+      schedule_type: scheduleType,
+      month_start: monthStart,
+      month_end: monthEnd,
+      stagger_by_row: staggerByRow,
+      target_scope: targetScope,
+      log_type: logType || null,
+      active: true,
+    },
+    rowIds,
+    treeIds
+  )
+  revalidatePath('/settings/tasks')
+}
+
+export async function updateTemplateAction(
+  templateId: string,
+  formData: FormData,
+  rowIds: string[],
+  treeIds: string[]
+) {
+  const title = (formData.get('title') as string)?.trim()
+  if (!title) throw new Error('Template title is required')
+  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly'
+  const monthStart = parseInt(formData.get('month_start') as string) || 1
+  const monthEnd = parseInt(formData.get('month_end') as string) || 12
+  const staggerByRow = formData.get('stagger_by_row') === 'true'
+  const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
+  const logType = (formData.get('log_type') as LogType | '') || null
+
+  await updateTemplate(
+    templateId,
+    {
+      title,
+      description: (formData.get('description') as string)?.trim() || null,
+      schedule_type: scheduleType,
+      month_start: monthStart,
+      month_end: monthEnd,
+      stagger_by_row: staggerByRow,
+      target_scope: targetScope,
+      log_type: logType || null,
+      active: formData.get('active') !== 'false',
+    },
+    rowIds,
+    treeIds
+  )
+  revalidatePath('/settings/tasks')
+}
+
+export async function toggleTemplateActiveAction(templateId: string, active: boolean) {
+  await toggleTemplateActive(templateId, active)
+  revalidatePath('/settings/tasks')
+  revalidatePath('/')
+}
+
+export async function deleteTemplateAction(templateId: string) {
+  await deleteTemplate(templateId)
+  revalidatePath('/settings/tasks')
+  revalidatePath('/')
 }

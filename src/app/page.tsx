@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getRowsWithTrees } from '@/lib/db/rows'
 import { getRecentLogs } from '@/lib/db/logs'
+import { generateTasksForCurrentPeriod, getPendingTaskTreeIds } from '@/lib/db/tasks'
 import { RowHeader } from '@/components/orchard/RowHeader'
 import { RowGrid } from '@/components/orchard/RowGrid'
 import { LogTypeIcon } from '@/components/logs/LogTypeIcon'
@@ -20,6 +21,11 @@ export default async function DashboardPage() {
     getRecentLogs(20),
   ])
 
+  // Generate any due recurring tasks idempotently, then fetch pending counts
+  await generateTasksForCurrentPeriod(orchard.id)
+  const allTreeIds = rows.flatMap((r) => r.trees.map((t) => t.id))
+  const pendingTaskTreeIds = await getPendingTaskTreeIds(allTreeIds)
+
   const totalTrees = rows.reduce((acc, r) => acc + r.trees.length, 0)
 
   const todayStart = new Date()
@@ -30,15 +36,22 @@ export default async function DashboardPage() {
       .map((l) => l.tree_id)
   )
 
-  const notLoggedRecently = rows
-    .flatMap((r) => r.trees)
-    .filter((t) => {
-      const condBad = t.condition === 'poor' || t.condition === 'dead'
-      if (condBad) return true
-      if (!t.last_log) return true
-      const days = (Date.now() - new Date(t.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
-      return days > 7
-    }).length
+  const conditionAttentionIds = new Set(
+    rows.flatMap((r) => r.trees)
+      .filter((t) => {
+        const condBad = t.condition === 'poor' || t.condition === 'dead'
+        if (condBad) return true
+        if (!t.last_log) return true
+        const days = (Date.now() - new Date(t.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
+        return days > 7
+      })
+      .map((t) => t.id)
+  )
+
+  const notLoggedRecently = new Set([
+    ...Array.from(conditionAttentionIds),
+    ...Array.from(pendingTaskTreeIds),
+  ]).size
 
   return (
     <div className="space-y-8">

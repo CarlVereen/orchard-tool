@@ -2,16 +2,18 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getRowsWithTrees } from '@/lib/db/rows'
+import { generateTasksForCurrentPeriod, getPendingTaskCountByTree } from '@/lib/db/tasks'
 import type { TreeWithLastLog } from '@/types/orchard'
 
-function attentionReason(tree: TreeWithLastLog): string {
+function conditionReason(tree: TreeWithLastLog): string | null {
   if (tree.condition === 'dead') return 'Marked as dead'
   if (tree.condition === 'poor') return 'Condition: poor'
   if (!tree.last_log) return 'Never logged'
   const days = Math.floor(
     (Date.now() - new Date(tree.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
   )
-  return `No activity for ${days} day${days === 1 ? '' : 's'}`
+  if (days > 7) return `No activity for ${days} day${days === 1 ? '' : 's'}`
+  return null
 }
 
 export default async function AttentionPage() {
@@ -19,17 +21,36 @@ export default async function AttentionPage() {
   if (!orchard) redirect('/setup')
 
   const rows = await getRowsWithTrees(orchard.id)
+  await generateTasksForCurrentPeriod(orchard.id)
 
-  const needsAttention = rows.flatMap((row) =>
-    row.trees
-      .filter((t) => {
-        if (t.condition === 'poor' || t.condition === 'dead') return true
-        if (!t.last_log) return true
-        const days = (Date.now() - new Date(t.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
-        return days > 7
+  const allTreeIds = rows.flatMap((r) => r.trees.map((t) => t.id))
+  const taskCounts = await getPendingTaskCountByTree(allTreeIds)
+
+  // Build deduplicated list: condition/log issues take priority, then task-only trees
+  const seen = new Set<string>()
+  const needsAttention: { treeId: string; name: string; rowLabel: string; reason: string }[] = []
+
+  for (const row of rows) {
+    for (const tree of row.trees) {
+      const cReason = conditionReason(tree)
+      const taskCount = taskCounts.get(tree.id) ?? 0
+      if (!cReason && taskCount === 0) continue
+
+      seen.add(tree.id)
+      let reason = cReason ?? ''
+      if (taskCount > 0) {
+        reason = cReason
+          ? `${cReason} · ${taskCount} pending task${taskCount === 1 ? '' : 's'}`
+          : `${taskCount} pending task${taskCount === 1 ? '' : 's'}`
+      }
+      needsAttention.push({
+        treeId: tree.id,
+        name: tree.variety ?? `Position ${tree.position}`,
+        rowLabel: row.label,
+        reason,
       })
-      .map((t) => ({ tree: t, rowLabel: row.label }))
-  )
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -42,7 +63,9 @@ export default async function AttentionPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-stone-800">
           Needs Attention
-          <span className="ml-2 text-sm font-normal text-red-500">{needsAttention.length} tree{needsAttention.length === 1 ? '' : 's'}</span>
+          <span className="ml-2 text-sm font-normal text-red-500">
+            {needsAttention.length} tree{needsAttention.length === 1 ? '' : 's'}
+          </span>
         </h1>
       </div>
 
@@ -52,19 +75,17 @@ export default async function AttentionPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {needsAttention.map(({ tree, rowLabel }) => (
+          {needsAttention.map(({ treeId, name, rowLabel, reason }) => (
             <Link
-              key={tree.id}
-              href={`/trees/${tree.id}`}
+              key={treeId}
+              href={`/trees/${treeId}`}
               className="flex items-center gap-4 bg-white border border-stone-200 rounded-lg px-4 py-3 hover:border-stone-300 transition-colors"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-stone-800 truncate">
-                  {tree.variety ?? `Position ${tree.position}`}
-                </p>
+                <p className="text-sm font-medium text-stone-800 truncate">{name}</p>
                 <p className="text-xs text-stone-400">{rowLabel}</p>
               </div>
-              <span className="text-xs text-red-500 shrink-0">{attentionReason(tree)}</span>
+              <span className="text-xs text-red-500 shrink-0 text-right max-w-[40%]">{reason}</span>
             </Link>
           ))}
         </div>

@@ -4,23 +4,29 @@ import { useState } from 'react'
 import { LogList } from './LogList'
 import { NotesList } from './NotesList'
 import { PhotosTab } from './PhotosTab'
-import type { Log, TreeNote, TreePhoto } from '@/types/orchard'
+import { TreeTasks } from './TreeTasks'
+import type { Log, TreeNote, TreePhoto, TreeTask } from '@/types/orchard'
 
-type Tab = 'activity' | 'notes' | 'photos'
+type Tab = 'activity' | 'tasks' | 'notes' | 'photos'
 
 interface TreeTabsProps {
   treeId: string
+  rowId: string
   logs: Log[]
   notes: TreeNote[]
   photos: TreePhoto[]
+  tasks: TreeTask[]
   addLogButton: React.ReactNode
 }
 
-export function TreeTabs({ treeId, logs, notes, photos, addLogButton }: TreeTabsProps) {
+export function TreeTabs({ treeId, rowId, logs, notes, photos, tasks, addLogButton }: TreeTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('activity')
 
-  const tabs: { id: Tab; label: string; count?: number }[] = [
+  const pendingTaskCount = tasks.filter((t) => !t.completed_at).length
+
+  const tabs: { id: Tab; label: string; count?: number; highlight?: boolean }[] = [
     { id: 'activity', label: 'Activity', count: logs.length },
+    { id: 'tasks', label: 'Tasks', count: pendingTaskCount, highlight: pendingTaskCount > 0 },
     { id: 'notes', label: 'Notes', count: notes.length },
     { id: 'photos', label: 'Photos', count: photos.length },
   ]
@@ -44,7 +50,9 @@ export function TreeTabs({ treeId, logs, notes, photos, addLogButton }: TreeTabs
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
-              <span className="ml-1.5 text-xs text-stone-400">({tab.count})</span>
+              <span className={`ml-1.5 text-xs ${tab.highlight ? 'text-red-400' : 'text-stone-400'}`}>
+                ({tab.count})
+              </span>
             )}
           </button>
         ))}
@@ -55,6 +63,7 @@ export function TreeTabs({ treeId, logs, notes, photos, addLogButton }: TreeTabs
 
       {/* Panels */}
       {activeTab === 'activity' && <LogList logs={logs} />}
+      {activeTab === 'tasks' && <TreeTasks treeId={treeId} rowId={rowId} initialTasks={tasks} />}
       {activeTab === 'notes' && <NotesList notes={notes} treeId={treeId} />}
       {activeTab === 'photos' && <PhotosTab treeId={treeId} initialPhotos={photos} />}
     </div>

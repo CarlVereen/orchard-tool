@@ -5,6 +5,7 @@ import { getLogsForTree } from '@/lib/db/logs'
 import { getNotesByTree } from '@/lib/db/notes'
 import { getPhotosByTree } from '@/lib/db/photos'
 import { getRows } from '@/lib/db/rows'
+import { getTasksForTree } from '@/lib/db/tasks'
 import { createClient } from '@/lib/supabase/server'
 import { TreeInfoCard } from '@/components/trees/TreeInfoCard'
 import { TreeSummaryStrip } from '@/components/trees/TreeSummaryStrip'
@@ -30,12 +31,13 @@ export default async function TreePage({ params }: TreePageProps) {
   const rowId = rowData?.id ?? tree.row_id
   const orchardId = rowData?.orchard_id ?? ''
 
-  const [logs, notes, photos, allRows, summary] = await Promise.all([
+  const [logs, notes, photos, allRows, summary, tasks] = await Promise.all([
     getLogsForTree(tree.id),
     getNotesByTree(tree.id),
     getPhotosByTree(tree.id),
     getRows(orchardId),
     getTreeSummary(tree.id, tree.watering_cycle_days),
+    getTasksForTree(tree.id),
   ])
 
   return (
@@ -55,12 +57,14 @@ export default async function TreePage({ params }: TreePageProps) {
       {/* Info card (edit includes danger zone) */}
       <TreeInfoCard tree={tree} rowLabel={rowLabel} rowId={rowId} orchardId={orchardId} allRows={allRows} />
 
-      {/* Tabs: Activity / Notes / Photos */}
+      {/* Tabs: Activity / Tasks / Notes / Photos */}
       <TreeTabs
         treeId={tree.id}
+        rowId={rowId}
         logs={logs}
         notes={notes}
         photos={photos}
+        tasks={tasks}
         addLogButton={
           <AddLogSheet treeId={tree.id} rowId={rowId} treeName={tree.variety ?? undefined} />
         }
