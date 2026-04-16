@@ -50,6 +50,7 @@ export default async function DashboardPage() {
           label="Need Attention"
           value={String(notLoggedRecently)}
           highlight={notLoggedRecently > 0}
+          href={notLoggedRecently > 0 ? '/attention' : undefined}
         />
       </div>
 
@@ -109,13 +110,25 @@ export default async function DashboardPage() {
   )
 }
 
-function StatCard({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className="bg-white border border-stone-200 rounded-lg px-4 py-4">
+function StatCard({ label, value, highlight = false, href }: { label: string; value: string; highlight?: boolean; href?: string }) {
+  const content = (
+    <>
       <p className="text-[10px] sm:text-xs text-stone-400 mb-1">{label}</p>
       <p className={`text-xl sm:text-2xl font-semibold ${highlight ? 'text-red-500' : 'text-stone-800'}`}>
         {value}
       </p>
+    </>
+  )
+  if (href) {
+    return (
+      <Link href={href} className="bg-white border border-stone-200 rounded-lg px-4 py-4 block hover:border-stone-300 transition-colors">
+        {content}
+      </Link>
+    )
+  }
+  return (
+    <div className="bg-white border border-stone-200 rounded-lg px-4 py-4">
+      {content}
     </div>
   )
 }
