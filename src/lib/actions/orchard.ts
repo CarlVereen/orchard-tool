@@ -107,7 +107,8 @@ export async function archiveTreeAction(treeId: string, rowId: string, formData:
   const reason = (formData.get('reason') as string)?.trim() || 'No reason given'
   await archiveTree(treeId, reason)
   revalidatePath(`/rows/${rowId}`)
-  redirect(`/rows/${rowId}`)
+  revalidatePath('/')
+  revalidatePath('/attention')
 }
 
 export async function moveTreeAction(treeId: string, oldRowId: string, formData: FormData) {
@@ -118,7 +119,7 @@ export async function moveTreeAction(treeId: string, oldRowId: string, formData:
   await moveTree(treeId, newRowId, newPosition)
   revalidatePath(`/rows/${oldRowId}`)
   revalidatePath(`/rows/${newRowId}`)
-  redirect(`/rows/${newRowId}`)
+  revalidatePath('/')
 }
 
 // ── Logs ─────────────────────────────────────────────────────────────────────

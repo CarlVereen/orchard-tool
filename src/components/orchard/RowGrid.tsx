@@ -3,24 +3,21 @@
 import { useState } from 'react'
 import { TreeCell, EmptyCell } from './TreeCell'
 import { Button } from '@/components/ui/button'
-import type { RowWithTrees, TreeWithLastLog } from '@/types/orchard'
+import type { RowWithTrees } from '@/types/orchard'
 
 interface RowGridProps {
   row: RowWithTrees
-  maxPosition?: number
   compact?: boolean
   selectable?: boolean
   onBulkLog?: (treeIds: string[]) => void
 }
 
-export function RowGrid({ row, maxPosition, compact = false, selectable = false, onBulkLog }: RowGridProps) {
+export function RowGrid({ row, compact = false, selectable = false, onBulkLog }: RowGridProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectMode, setSelectMode] = useState(false)
 
-  const treeMap = new Map(row.trees.map((t) => [t.position, t]))
-  const maxPos = maxPosition ?? Math.max(...row.trees.map((t) => t.position), 0)
-
-  const cells: (TreeWithLastLog | null)[] = Array.from({ length: maxPos }, (_, i) => treeMap.get(i + 1) ?? null)
+  const sortedTrees = [...row.trees].sort((a, b) => a.position - b.position)
+  const nextPosition = sortedTrees.length > 0 ? sortedTrees[sortedTrees.length - 1].position + 1 : 1
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -80,23 +77,18 @@ export function RowGrid({ row, maxPosition, compact = false, selectable = false,
       </div>
 
       <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 pb-1">
-        {cells.map((tree, i) =>
-          tree ? (
-            <TreeCell
-              key={tree.id}
-              tree={tree}
-              compact={compact}
-              selectable={selectMode}
-              selected={selectedIds.has(tree.id)}
-              onSelect={toggleSelect}
-            />
-          ) : (
-            <EmptyCell key={i} position={i + 1} rowId={row.id} compact={compact} />
-          )
-        )}
-        {/* Append slot to add at next position */}
+        {sortedTrees.map((tree) => (
+          <TreeCell
+            key={tree.id}
+            tree={tree}
+            compact={compact}
+            selectable={selectMode}
+            selected={selectedIds.has(tree.id)}
+            onSelect={toggleSelect}
+          />
+        ))}
         {!selectMode && (
-          <EmptyCell position={maxPos + 1} rowId={row.id} compact={compact} />
+          <EmptyCell position={nextPosition} rowId={row.id} compact={compact} />
         )}
       </div>
     </div>

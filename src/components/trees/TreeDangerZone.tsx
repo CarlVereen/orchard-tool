@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { deleteTreeAction, archiveTreeAction, moveTreeAction } from '@/lib/actions/orchard'
@@ -21,6 +20,8 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('idle')
   const [deleting, setDeleting] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [moving, setMoving] = useState(false)
   const [rows, setRows] = useState<Row[]>([])
   const [loadingRows, setLoadingRows] = useState(false)
 
@@ -101,7 +102,12 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
 
       {mode === 'archive' && (
         <form
-          action={async (fd) => { await archiveAction(fd) }}
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setArchiving(true)
+            await archiveAction(new FormData(e.currentTarget))
+            router.push(`/rows/${rowId}`)
+          }}
           className="bg-stone-50 border border-stone-200 rounded-lg p-4 space-y-3"
         >
           <p className="text-sm text-stone-700 font-medium">Archive this tree</p>
@@ -111,15 +117,25 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
             <Input id="reason" name="reason" placeholder="e.g. tree died, removed, replanted…" required />
           </div>
           <div className="flex gap-2">
-            <SubmitButton size="sm">Archive</SubmitButton>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('idle')}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={archiving}>
+              {archiving && <svg className="animate-spin size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+              Archive
+            </Button>
+            <Button type="button" variant="ghost" size="sm" disabled={archiving} onClick={() => setMode('idle')}>Cancel</Button>
           </div>
         </form>
       )}
 
       {mode === 'move' && (
         <form
-          action={async (fd) => { await moveAction(fd) }}
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setMoving(true)
+            const fd = new FormData(e.currentTarget)
+            const newRowId = fd.get('new_row_id') as string
+            await moveAction(fd)
+            router.push(`/rows/${newRowId}`)
+          }}
           className="bg-stone-50 border border-stone-200 rounded-lg p-4 space-y-3"
         >
           <p className="text-sm text-stone-700 font-medium">Move to another row</p>
@@ -148,8 +164,11 @@ export function TreeDangerZone({ treeId, rowId, orchardId }: TreeDangerZoneProps
             </div>
           </div>
           <div className="flex gap-2">
-            <SubmitButton size="sm">Move</SubmitButton>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMode('idle')}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={moving}>
+              {moving && <svg className="animate-spin size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+              Move
+            </Button>
+            <Button type="button" variant="ghost" size="sm" disabled={moving} onClick={() => setMode('idle')}>Cancel</Button>
           </div>
         </form>
       )}
