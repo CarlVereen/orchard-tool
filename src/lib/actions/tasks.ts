@@ -1,0 +1,151 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase/server'
+import {
+  completeProjectTask,
+  uncompleteProjectTask,
+  deleteProjectTask,
+  createProjectTask,
+  createProject,
+  archiveProject,
+  setTaskBatchId,
+  advancePhase,
+  skipPhaseTasks,
+  updateProjectTask,
+} from '@/lib/db/projects'
+import { insertLogsForTrees } from '@/lib/db/logs'
+import { generatePermaculturePhaseTasks } from '@/lib/tasks/generate-permaculture-tasks'
+import type { LogType } from '@/types/orchard'
+
+function revalidateTaskPaths() {
+  revalidatePath('/tasks')
+  revalidatePath('/tasks/projects')
+  revalidatePath('/')
+}
+
+export async function completeProjectTaskAction(taskId: string) {
+  const supabase = createClient()
+
+  const { data: task } = await supabase
+    .from('project_tasks')
+    .select('*, project:projects!inner(*)')
+    .eq('id', taskId)
+    .single()
+  if (!task) throw new Error('Task not found')
+
+  await completeProjectTask(taskId)
+
+  const project = task.project as { orchard_id: string; project_type: string }
+  let loggedCount = 0
+
+  if (project.project_type === 'expert' && task.log_type && task.species) {
+    const { data: matchingTrees } = await supabase
+      .from('trees')
+      .select('id, rows!inner(orchard_id)')
+      .eq('rows.orchard_id', project.orchard_id)
+      .is('archived_at', null)
+      .ilike('species', `%${task.species}%`)
+
+    if (matchingTrees?.length) {
+      const treeIds = matchingTrees.map((t) => t.id as string)
+      const logs = await insertLogsForTrees(treeIds, task.log_type as LogType, {
+        notes: task.title,
+      })
+      loggedCount = logs.length
+
+      if (logs.length > 0 && logs[0].batch_id) {
+        await setTaskBatchId(taskId, logs[0].batch_id)
+      }
+    }
+  }
+
+  revalidateTaskPaths()
+  return { loggedCount, logType: task.log_type, species: task.species }
+}
+
+export async function uncompleteProjectTaskAction(taskId: string) {
+  await uncompleteProjectTask(taskId)
+  revalidateTaskPaths()
+}
+
+export async function deleteProjectTaskAction(taskId: string) {
+  await deleteProjectTask(taskId)
+  revalidateTaskPaths()
+}
+
+export async function createProjectTaskAction(projectId: string, formData: FormData) {
+  const title = formData.get('title') as string
+  if (!title?.trim()) throw new Error('Title is required')
+
+  const dueDate = formData.get('due_date') as string | null
+  const priority = parseInt(formData.get('priority') as string) || 2
+  const description = formData.get('description') as string | null
+  const phase = formData.get('phase') ? parseInt(formData.get('phase') as string) : null
+
+  await createProjectTask(projectId, {
+    title: title.trim(),
+    description: description || null,
+    priority: priority as 1 | 2 | 3,
+    dueDate: dueDate || null,
+    phase,
+  })
+
+  revalidateTaskPaths()
+}
+
+export async function updateProjectTaskAction(taskId: string, formData: FormData) {
+  const title = formData.get('title') as string | undefined
+  const description = formData.get('description') as string | undefined
+  const priority = formData.get('priority') ? parseInt(formData.get('priority') as string) as 1 | 2 | 3 : undefined
+  const dueDate = formData.get('due_date') as string | undefined
+
+  await updateProjectTask(taskId, {
+    title,
+    description: description ?? undefined,
+    priority,
+    dueDate: dueDate ?? undefined,
+  })
+
+  revalidateTaskPaths()
+}
+
+export async function createUserProjectAction(orchardId: string, formData: FormData) {
+  const name = formData.get('name') as string
+  if (!name?.trim()) throw new Error('Project name is required')
+
+  await createProject(orchardId, name.trim(), 'user')
+  revalidateTaskPaths()
+}
+
+export async function archiveProjectAction(projectId: string) {
+  await archiveProject(projectId)
+  revalidateTaskPaths()
+}
+
+export async function enablePermacultureAction(orchardId: string, startYear: number) {
+  const project = await createProject(orchardId, 'Permaculture Conversion', 'permaculture', {
+    startYear,
+  })
+  await generatePermaculturePhaseTasks(project)
+  revalidateTaskPaths()
+}
+
+export async function completePhaseAction(projectId: string) {
+  const supabase = createClient()
+  const { data: project } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .single()
+  if (!project) throw new Error('Project not found')
+
+  await skipPhaseTasks(projectId, project.current_phase)
+  await advancePhase(projectId)
+
+  const updatedProject = { ...project, current_phase: project.current_phase + 1 }
+  await generatePermaculturePhaseTasks(updatedProject)
+
+  revalidateTaskPaths()
+  revalidatePath(`/tasks/projects/${projectId}`)
+}

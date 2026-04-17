@@ -120,3 +120,45 @@ export interface TreeTask {
   notes: string | null
   created_at: string
 }
+
+// ── Projects & Project Tasks ─────────────────────────────────────────────────
+
+export type ProjectType = 'expert' | 'permaculture' | 'user'
+
+export interface Project {
+  id: string
+  orchard_id: string
+  name: string
+  project_type: ProjectType
+  species: string | null
+  start_year: number | null
+  current_phase: number
+  archived_at: string | null
+  created_at: string
+}
+
+export interface ProjectTask {
+  id: string
+  project_id: string
+  title: string
+  description: string | null
+  priority: 1 | 2 | 3
+  due_date: string | null
+  log_type: LogType | null
+  species: string | null
+  phase: number | null
+  period: string | null
+  completed_at: string | null
+  completed_batch_id: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface ProjectWithTasks extends Project {
+  tasks: ProjectTask[]
+}
+
+export interface DisplayTask extends ProjectTask {
+  projectName: string
+  projectType: ProjectType
+}
