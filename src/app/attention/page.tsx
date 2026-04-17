@@ -3,16 +3,12 @@ import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getRowsWithTrees } from '@/lib/db/rows'
 import { generateTasksForCurrentPeriod, getPendingTaskCountByTree } from '@/lib/db/tasks'
+import { createClient } from '@/lib/supabase/server'
 import type { TreeWithLastLog } from '@/types/orchard'
 
 function conditionReason(tree: TreeWithLastLog): string | null {
   if (tree.condition === 'dead') return 'Marked as dead'
   if (tree.condition === 'poor') return 'Condition: poor'
-  if (!tree.last_log) return 'Never logged'
-  const days = Math.floor(
-    (Date.now() - new Date(tree.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
-  )
-  if (days > 7) return `No activity for ${days} day${days === 1 ? '' : 's'}`
   return null
 }
 
@@ -26,28 +22,41 @@ export default async function AttentionPage() {
   const allTreeIds = rows.flatMap((r) => r.trees.map((t) => t.id))
   const taskCounts = await getPendingTaskCountByTree(allTreeIds)
 
-  // Build deduplicated list: condition/log issues take priority, then task-only trees
-  const seen = new Set<string>()
+  // Count overdue project_tasks per tree
+  const today = new Date().toISOString().split('T')[0]
+  const supabase = createClient()
+  const { data: overdueTasks } = await supabase
+    .from('project_tasks')
+    .select('tree_id')
+    .in('tree_id', allTreeIds)
+    .is('completed_at', null)
+    .lt('due_date', today)
+
+  const overdueByTree = new Map<string, number>()
+  for (const row of overdueTasks ?? []) {
+    const tid = row.tree_id as string
+    overdueByTree.set(tid, (overdueByTree.get(tid) ?? 0) + 1)
+  }
+
   const needsAttention: { treeId: string; name: string; rowLabel: string; reason: string }[] = []
 
   for (const row of rows) {
     for (const tree of row.trees) {
       const cReason = conditionReason(tree)
       const taskCount = taskCounts.get(tree.id) ?? 0
-      if (!cReason && taskCount === 0) continue
+      const overdueCount = overdueByTree.get(tree.id) ?? 0
+      if (!cReason && taskCount === 0 && overdueCount === 0) continue
 
-      seen.add(tree.id)
-      let reason = cReason ?? ''
-      if (taskCount > 0) {
-        reason = cReason
-          ? `${cReason} · ${taskCount} pending task${taskCount === 1 ? '' : 's'}`
-          : `${taskCount} pending task${taskCount === 1 ? '' : 's'}`
-      }
+      const reasons: string[] = []
+      if (cReason) reasons.push(cReason)
+      if (overdueCount > 0) reasons.push(`${overdueCount} overdue task${overdueCount === 1 ? '' : 's'}`)
+      if (taskCount > 0) reasons.push(`${taskCount} pending task${taskCount === 1 ? '' : 's'}`)
+
       needsAttention.push({
         treeId: tree.id,
         name: tree.variety ?? `Position ${tree.position}`,
         rowLabel: row.label,
-        reason,
+        reason: reasons.join(' · '),
       })
     }
   }
