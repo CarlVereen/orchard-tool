@@ -236,11 +236,11 @@ export async function upsertProjectTasks(
 
 // ── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getIncompleteTasksByOrchard(orchardId: string): Promise<(ProjectTask & { project_name: string; project_type: ProjectType })[]> {
+export async function getIncompleteTasksByOrchard(orchardId: string): Promise<(ProjectTask & { project_name: string; project_type: ProjectType; tree_label: string | null })[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('project_tasks')
-    .select('*, project:projects!inner(name, project_type, orchard_id, archived_at)')
+    .select('*, project:projects!inner(name, project_type, orchard_id, archived_at), tree:trees(variety, position, row:rows(label))')
     .eq('projects.orchard_id', orchardId)
     .is('projects.archived_at', null)
     .is('completed_at', null)
@@ -249,22 +249,24 @@ export async function getIncompleteTasksByOrchard(orchardId: string): Promise<(P
   if (error) throw error
   return (data ?? []).map((t) => {
     const project = t.project as unknown as { name: string; project_type: ProjectType }
+    const tree = t.tree as unknown as { variety: string | null; position: number; row: { label: string } } | null
     return {
       ...t,
       project_name: project.name,
       project_type: project.project_type,
+      tree_label: tree ? `${tree.variety ?? tree.row.label} #${tree.position}` : null,
     }
   })
 }
 
-export async function getCompletedTodayByOrchard(orchardId: string): Promise<(ProjectTask & { project_name: string; project_type: ProjectType })[]> {
+export async function getCompletedTodayByOrchard(orchardId: string): Promise<(ProjectTask & { project_name: string; project_type: ProjectType; tree_label: string | null })[]> {
   const supabase = createClient()
   const todayStart = new Date()
   todayStart.setHours(0, 0, 0, 0)
 
   const { data, error } = await supabase
     .from('project_tasks')
-    .select('*, project:projects!inner(name, project_type, orchard_id, archived_at)')
+    .select('*, project:projects!inner(name, project_type, orchard_id, archived_at), tree:trees(variety, position, row:rows(label))')
     .eq('projects.orchard_id', orchardId)
     .is('projects.archived_at', null)
     .gte('completed_at', todayStart.toISOString())
@@ -272,10 +274,12 @@ export async function getCompletedTodayByOrchard(orchardId: string): Promise<(Pr
   if (error) throw error
   return (data ?? []).map((t) => {
     const project = t.project as unknown as { name: string; project_type: ProjectType }
+    const tree = t.tree as unknown as { variety: string | null; position: number; row: { label: string } } | null
     return {
       ...t,
       project_name: project.name,
       project_type: project.project_type,
+      tree_label: tree ? `${tree.variety ?? tree.row.label} #${tree.position}` : null,
     }
   })
 }

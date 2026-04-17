@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import type { DisplayTask } from '@/types/orchard'
 
 const PRIORITY_BORDER: Record<number, string> = {
@@ -53,9 +54,11 @@ export function TaskItem({ task, onComplete, completing }: TaskItemProps) {
         </span>
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-stone-800">{task.title}</p>
+        <p className="text-sm text-stone-800">
+          {task.treeLabel ? task.treeLabel : task.title}
+        </p>
         <p className="text-xs text-stone-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-          <span>{task.projectName}</span>
+          {!task.treeLabel && <span>{task.projectName}</span>}
           {task.log_type && (
             <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full capitalize">
               {task.log_type}
@@ -68,6 +71,89 @@ export function TaskItem({ task, onComplete, completing }: TaskItemProps) {
           )}
         </p>
       </div>
+    </div>
+  )
+}
+
+interface TaskGroupProps {
+  title: string
+  description: string | null
+  projectName: string
+  priority: number
+  tasks: DisplayTask[]
+  onComplete: (taskId: string) => void
+  completingId: string | null
+}
+
+export function TaskGroup({ title, description, projectName, priority, tasks, onComplete, completingId }: TaskGroupProps) {
+  const [expanded, setExpanded] = useState(true)
+  const completed = tasks.filter((t) => t.completed_at)
+  const pending = tasks.filter((t) => !t.completed_at)
+  const borderColor = PRIORITY_BORDER[priority] ?? 'border-l-stone-200'
+
+  return (
+    <div className={`bg-white border border-stone-200 rounded-lg border-l-[3px] ${borderColor} overflow-hidden`}>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
+      >
+        <svg
+          className={`w-3 h-3 text-stone-400 transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-stone-800">{title}</p>
+          <p className="text-xs text-stone-400 mt-0.5">
+            {projectName} · {pending.length} remaining{completed.length > 0 ? ` · ${completed.length} done` : ''}
+          </p>
+        </div>
+      </button>
+      {expanded && (
+        <div className="border-t border-stone-100 px-3 py-1.5 space-y-1">
+          {description && (
+            <p className="text-xs text-stone-400 py-1">{description}</p>
+          )}
+          {pending.map((task) => (
+            <div key={task.id} className="flex items-center gap-2 py-1">
+              <button
+                type="button"
+                onClick={() => onComplete(task.id)}
+                disabled={completingId === task.id}
+                className="w-11 h-11 -m-1.5 flex items-center justify-center shrink-0"
+                aria-label={`Complete ${task.treeLabel}`}
+              >
+                <span className="w-4 h-4 rounded border-2 border-stone-300 hover:border-green-500 transition-colors flex items-center justify-center">
+                  {completingId === task.id && (
+                    <svg className="animate-spin size-2.5" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                </span>
+              </button>
+              <span className="text-sm text-stone-700">{task.treeLabel ?? 'Tree'}</span>
+            </div>
+          ))}
+          {completed.map((task) => (
+            <div key={task.id} className="flex items-center gap-2 py-1 opacity-50">
+              <div className="w-11 h-11 -m-1.5 flex items-center justify-center shrink-0">
+                <span className="w-4 h-4 rounded border-2 border-green-400 bg-green-400 flex items-center justify-center">
+                  <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12">
+                    <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </svg>
+                </span>
+              </div>
+              <span className="text-sm text-stone-400 line-through">{task.treeLabel ?? 'Tree'}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -100,7 +186,7 @@ export function CompletedTaskItem({ task, onUncomplete }: CompletedTaskItemProps
         </span>
       </button>
       <span className="flex-1 text-sm text-stone-400 line-through min-w-0 truncate">
-        {task.title}
+        {task.treeLabel ? `${task.title} · ${task.treeLabel}` : task.title}
       </span>
       {task.completed_at && (
         <span className="text-[10px] text-stone-300 shrink-0">

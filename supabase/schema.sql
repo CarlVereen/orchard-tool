@@ -66,6 +66,7 @@ CREATE UNIQUE INDEX projects_expert_species_idx
 CREATE TABLE project_tasks (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id         uuid NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  tree_id            uuid REFERENCES trees(id) ON DELETE SET NULL,
   title              text NOT NULL,
   description        text,
   priority           int NOT NULL DEFAULT 2 CHECK (priority IN (1, 2, 3)),
@@ -77,8 +78,7 @@ CREATE TABLE project_tasks (
   completed_at       timestamptz,
   completed_batch_id uuid,
   notes              text,
-  created_at         timestamptz DEFAULT now(),
-  UNIQUE (project_id, title, period)
+  created_at         timestamptz DEFAULT now()
 );
 
 CREATE INDEX project_tasks_project_id_idx ON project_tasks(project_id);

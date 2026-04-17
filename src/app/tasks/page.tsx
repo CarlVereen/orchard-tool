@@ -41,6 +41,7 @@ export default async function TasksPage() {
     ...t,
     projectName: t.project_name,
     projectType: t.project_type,
+    treeLabel: t.tree_label ?? undefined,
   })
 
   const todayTasks = sortTasks(

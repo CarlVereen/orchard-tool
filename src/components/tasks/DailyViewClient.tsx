@@ -3,7 +3,7 @@
 import { useState, useOptimistic, useTransition } from 'react'
 import { toast } from 'sonner'
 import { TaskSection } from './TaskSection'
-import { TaskItem, CompletedTaskItem } from './TaskItem'
+import { TaskItem, TaskGroup, CompletedTaskItem } from './TaskItem'
 import {
   completeProjectTaskAction,
   uncompleteProjectTaskAction,
@@ -55,13 +55,60 @@ function applyOptimistic(
   return state
 }
 
+interface TaskGroupData {
+  key: string
+  title: string
+  description: string | null
+  projectName: string
+  priority: number
+  tasks: DisplayTask[]
+}
+
+function groupExpertTasks(tasks: DisplayTask[]): (DisplayTask | TaskGroupData)[] {
+  const result: (DisplayTask | TaskGroupData)[] = []
+  const expertByTitle = new Map<string, DisplayTask[]>()
+  const order: string[] = []
+
+  for (const task of tasks) {
+    if (task.projectType === 'expert' && task.tree_id) {
+      const key = `${task.title}|${task.species}`
+      if (!expertByTitle.has(key)) {
+        expertByTitle.set(key, [])
+        order.push(key)
+      }
+      expertByTitle.get(key)!.push(task)
+    } else {
+      result.push(task)
+    }
+  }
+
+  for (const key of order) {
+    const groupTasks = expertByTitle.get(key)!
+    const first = groupTasks[0]
+    result.push({
+      key,
+      title: first.title,
+      description: first.description,
+      projectName: first.projectName,
+      priority: first.priority,
+      tasks: groupTasks,
+    })
+  }
+
+  return result
+}
+
+function isGroup(item: DisplayTask | TaskGroupData): item is TaskGroupData {
+  return 'tasks' in item && 'key' in item
+}
+
 export function DailyViewClient({
   todayTasks,
   comingUpTasks,
   permacultureTasks,
   completedTodayTasks,
 }: DailyViewClientProps) {
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const [optimistic, addOptimistic] = useOptimistic(
     { today: todayTasks, comingUp: comingUpTasks, permaculture: permacultureTasks, completed: completedTodayTasks },
     applyOptimistic
@@ -76,7 +123,7 @@ export function DailyViewClient({
       try {
         const result = await completeProjectTaskAction(taskId)
         if (result.loggedCount > 0) {
-          toast.success(`Logged ${result.logType} on ${result.loggedCount} ${result.species} tree${result.loggedCount === 1 ? '' : 's'}`)
+          toast.success(`Logged ${result.logType} on ${result.species} tree`)
         }
       } catch {
         toast.error('Failed to complete task')
@@ -110,6 +157,9 @@ export function DailyViewClient({
     optimistic.permaculture.length === 0 &&
     optimistic.completed.length === 0
 
+  const todayItems = groupExpertTasks(optimistic.today)
+  const comingUpItems = groupExpertTasks(optimistic.comingUp)
+
   return (
     <div className="space-y-4">
       <p className="text-sm text-stone-500">{dateLabel}</p>
@@ -123,29 +173,57 @@ export function DailyViewClient({
         </div>
       ) : (
         <>
-          {optimistic.today.length > 0 && (
+          {todayItems.length > 0 && (
             <TaskSection title="Today" count={optimistic.today.length} defaultOpen>
-              {optimistic.today.map((task) => (
-                <TaskItem
-                  key={task.id}
-                  task={task}
-                  onComplete={handleComplete}
-                  completing={completingId === task.id}
-                />
-              ))}
+              {todayItems.map((item) =>
+                isGroup(item) ? (
+                  <TaskGroup
+                    key={item.key}
+                    title={item.title}
+                    description={item.description}
+                    projectName={item.projectName}
+                    priority={item.priority}
+                    tasks={item.tasks}
+                    onComplete={handleComplete}
+                    completingId={completingId}
+                  />
+                ) : (
+                  <TaskItem
+                    key={item.id}
+                    task={item}
+                    onComplete={handleComplete}
+                    completing={completingId === item.id}
+                  />
+                )
+              )}
             </TaskSection>
           )}
 
-          <TaskSection title="Coming Up" count={optimistic.comingUp.length} defaultOpen={false}>
-            {optimistic.comingUp.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onComplete={handleComplete}
-                completing={completingId === task.id}
-              />
-            ))}
-          </TaskSection>
+          {comingUpItems.length > 0 && (
+            <TaskSection title="Coming Up" count={optimistic.comingUp.length} defaultOpen={false}>
+              {comingUpItems.map((item) =>
+                isGroup(item) ? (
+                  <TaskGroup
+                    key={item.key}
+                    title={item.title}
+                    description={item.description}
+                    projectName={item.projectName}
+                    priority={item.priority}
+                    tasks={item.tasks}
+                    onComplete={handleComplete}
+                    completingId={completingId}
+                  />
+                ) : (
+                  <TaskItem
+                    key={item.id}
+                    task={item}
+                    onComplete={handleComplete}
+                    completing={completingId === item.id}
+                  />
+                )
+              )}
+            </TaskSection>
+          )}
 
           <TaskSection title="Permaculture" count={optimistic.permaculture.length} defaultOpen={false}>
             {optimistic.permaculture.map((task) => (
@@ -172,4 +250,3 @@ export function DailyViewClient({
     </div>
   )
 }
-

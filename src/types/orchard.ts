@@ -140,6 +140,7 @@ export interface Project {
 export interface ProjectTask {
   id: string
   project_id: string
+  tree_id: string | null
   title: string
   description: string | null
   priority: 1 | 2 | 3
@@ -161,4 +162,5 @@ export interface ProjectWithTasks extends Project {
 export interface DisplayTask extends ProjectTask {
   projectName: string
   projectType: ProjectType
+  treeLabel?: string
 }

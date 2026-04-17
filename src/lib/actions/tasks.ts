@@ -14,7 +14,6 @@ import {
   skipPhaseTasks,
   updateProjectTask,
 } from '@/lib/db/projects'
-import { insertLogsForTrees } from '@/lib/db/logs'
 import { generatePermaculturePhaseTasks } from '@/lib/tasks/generate-permaculture-tasks'
 import type { LogType } from '@/types/orchard'
 
@@ -39,25 +38,13 @@ export async function completeProjectTaskAction(taskId: string) {
   const project = task.project as { orchard_id: string; project_type: string }
   let loggedCount = 0
 
-  if (project.project_type === 'expert' && task.log_type && task.species) {
-    const { data: matchingTrees } = await supabase
-      .from('trees')
-      .select('id, rows!inner(orchard_id)')
-      .eq('rows.orchard_id', project.orchard_id)
-      .is('archived_at', null)
-      .ilike('species', `%${task.species}%`)
-
-    if (matchingTrees?.length) {
-      const treeIds = matchingTrees.map((t) => t.id as string)
-      const logs = await insertLogsForTrees(treeIds, task.log_type as LogType, {
-        notes: task.title,
-      })
-      loggedCount = logs.length
-
-      if (logs.length > 0 && logs[0].batch_id) {
-        await setTaskBatchId(taskId, logs[0].batch_id)
-      }
-    }
+  if (project.project_type === 'expert' && task.log_type && task.tree_id) {
+    const { insertLog } = await import('@/lib/db/logs')
+    const log = await insertLog(task.tree_id, task.log_type as LogType, {
+      notes: task.title,
+    })
+    loggedCount = 1
+    await setTaskBatchId(taskId, log.id)
   }
 
   revalidateTaskPaths()

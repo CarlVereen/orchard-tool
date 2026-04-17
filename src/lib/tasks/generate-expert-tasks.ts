@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { EXPERT_CARE_SCHEDULES, SUPPORTED_SPECIES, type ExpertSpecies } from '@/lib/data/care-schedules'
-import { getExpertTaskLastGenerated, upsertProjectTasks } from '@/lib/db/projects'
+import { getExpertTaskLastGenerated } from '@/lib/db/projects'
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -22,31 +22,42 @@ export async function generateExpertTasks(orchardId: string): Promise<void> {
 
   const { data: trees } = await supabase
     .from('trees')
-    .select('species, rows!inner(orchard_id)')
+    .select('id, species, variety, position, rows!inner(orchard_id, label)')
     .eq('rows.orchard_id', orchardId)
     .is('archived_at', null)
     .not('species', 'is', null)
 
   if (!trees?.length) return
 
-  const userSpecies = new Set<ExpertSpecies>()
+  const treesBySpecies = new Map<ExpertSpecies, { id: string; species: string; variety: string | null; position: number; rowLabel: string }[]>()
+
   for (const tree of trees) {
     const s = (tree.species as string)?.toLowerCase().trim()
     if (!s) continue
     for (const supported of SUPPORTED_SPECIES) {
       if (s.includes(supported)) {
-        userSpecies.add(supported)
+        if (!treesBySpecies.has(supported)) treesBySpecies.set(supported, [])
+        const row = tree.rows as unknown as { orchard_id: string; label: string }
+        treesBySpecies.get(supported)!.push({
+          id: tree.id as string,
+          species: tree.species as string,
+          variety: tree.variety as string | null,
+          position: tree.position as number,
+          rowLabel: row.label,
+        })
+        break
       }
     }
   }
-  if (userSpecies.size === 0) return
+
+  if (treesBySpecies.size === 0) return
 
   const applicableTasks = EXPERT_CARE_SCHEDULES.filter(
-    (t) => userSpecies.has(t.species) && currentMonth >= t.monthStart && currentMonth <= t.monthEnd
+    (t) => treesBySpecies.has(t.species) && currentMonth >= t.monthStart && currentMonth <= t.monthEnd
   )
   if (applicableTasks.length === 0) return
 
-  for (const species of Array.from(userSpecies)) {
+  for (const species of Array.from(treesBySpecies.keys())) {
     const { data: existing } = await supabase
       .from('projects')
       .select('id')
@@ -75,20 +86,53 @@ export async function generateExpertTasks(orchardId: string): Promise<void> {
 
   const projectBySpecies = new Map(projects.map((p) => [p.species as string, p.id as string]))
 
-  const tasksToInsert = applicableTasks
-    .filter((t) => projectBySpecies.has(t.species))
-    .map((t) => ({
-      project_id: projectBySpecies.get(t.species)!,
-      title: t.title,
-      description: t.description,
-      priority: t.priority,
-      due_date: `${currentYear}-${pad(currentMonth)}-01`,
-      log_type: t.logType,
-      species: t.species,
-      period,
-    }))
+  // Get existing tasks for this period to avoid duplicates
+  const { data: existingTasks } = await supabase
+    .from('project_tasks')
+    .select('title, tree_id, period')
+    .in('project_id', projects.map((p) => p.id))
+    .eq('period', period)
+
+  const existingSet = new Set(
+    (existingTasks ?? []).map((t) => `${t.title}|${t.tree_id}`)
+  )
+
+  const tasksToInsert: {
+    project_id: string
+    tree_id: string
+    title: string
+    description: string
+    priority: number
+    due_date: string
+    log_type: string | null
+    species: string
+    period: string
+  }[] = []
+
+  for (const task of applicableTasks) {
+    const projectId = projectBySpecies.get(task.species)
+    if (!projectId) continue
+
+    const matchingTrees = treesBySpecies.get(task.species) ?? []
+    for (const tree of matchingTrees) {
+      const key = `${task.title}|${tree.id}`
+      if (existingSet.has(key)) continue
+
+      tasksToInsert.push({
+        project_id: projectId,
+        tree_id: tree.id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        due_date: `${currentYear}-${pad(currentMonth)}-01`,
+        log_type: task.logType,
+        species: task.species,
+        period,
+      })
+    }
+  }
 
   if (tasksToInsert.length > 0) {
-    await upsertProjectTasks(tasksToInsert)
+    await supabase.from('project_tasks').insert(tasksToInsert)
   }
 }
