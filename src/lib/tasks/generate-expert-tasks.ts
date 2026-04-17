@@ -47,15 +47,22 @@ export async function generateExpertTasks(orchardId: string): Promise<void> {
   if (applicableTasks.length === 0) return
 
   for (const species of Array.from(userSpecies)) {
-    await supabase.from('projects').upsert(
-      {
+    const { data: existing } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('orchard_id', orchardId)
+      .eq('project_type', 'expert')
+      .eq('species', species)
+      .maybeSingle()
+
+    if (!existing) {
+      await supabase.from('projects').insert({
         orchard_id: orchardId,
         name: `${capitalize(species)} Care`,
         project_type: 'expert',
         species,
-      },
-      { onConflict: 'orchard_id,project_type,species', ignoreDuplicates: true }
-    )
+      })
+    }
   }
 
   const { data: projects } = await supabase
