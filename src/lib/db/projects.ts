@@ -284,6 +284,19 @@ export async function getCompletedTodayByOrchard(orchardId: string): Promise<(Pr
   })
 }
 
+export async function getProjectTasksForTree(treeId: string): Promise<ProjectTask[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('project_tasks')
+    .select('*')
+    .eq('tree_id', treeId)
+    .order('completed_at', { ascending: true, nullsFirst: true })
+    .order('priority', { ascending: true })
+    .order('due_date', { ascending: true, nullsFirst: false })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function getExpertTaskLastGenerated(orchardId: string, period: string): Promise<Date | null> {
   const supabase = createClient()
   const { data, error } = await supabase

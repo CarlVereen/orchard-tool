@@ -10,7 +10,11 @@ import {
   uncompleteTaskAction,
   deleteTaskAction,
 } from '@/lib/actions/orchard'
-import type { TreeTask, LogType } from '@/types/orchard'
+import {
+  completeProjectTaskAction,
+  uncompleteProjectTaskAction,
+} from '@/lib/actions/tasks'
+import type { TreeTask, ProjectTask, LogType } from '@/types/orchard'
 
 const LOG_TYPE_OPTIONS: { value: LogType; label: string }[] = [
   { value: 'water', label: 'Water' },
@@ -44,9 +48,10 @@ interface TreeTasksProps {
   treeId: string
   rowId: string
   initialTasks: TreeTask[]
+  projectTasks: ProjectTask[]
 }
 
-export function TreeTasks({ treeId, rowId, initialTasks }: TreeTasksProps) {
+export function TreeTasks({ treeId, rowId, initialTasks, projectTasks }: TreeTasksProps) {
   const [completing, setCompleting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [showCompleted, setShowCompleted] = useState(false)
@@ -56,6 +61,27 @@ export function TreeTasks({ treeId, rowId, initialTasks }: TreeTasksProps) {
 
   const pending = initialTasks.filter((t) => !t.completed_at)
   const completed = initialTasks.filter((t) => t.completed_at)
+
+  const pendingProjectTasks = projectTasks.filter((t) => !t.completed_at)
+  const completedProjectTasks = projectTasks.filter((t) => t.completed_at)
+
+  const handleCompleteProjectTask = async (taskId: string) => {
+    setCompleting(taskId)
+    try {
+      await completeProjectTaskAction(taskId)
+    } finally {
+      setCompleting(null)
+    }
+  }
+
+  const handleUncompleteProjectTask = async (taskId: string) => {
+    setCompleting(taskId)
+    try {
+      await uncompleteProjectTaskAction(taskId)
+    } finally {
+      setCompleting(null)
+    }
+  }
 
   const handleComplete = async (task: TreeTask) => {
     setCompleting(task.id)
@@ -102,8 +128,46 @@ export function TreeTasks({ treeId, rowId, initialTasks }: TreeTasksProps) {
   return (
     <div className="space-y-4">
       {/* Pending tasks */}
+      {/* Expert care tasks */}
+      {pendingProjectTasks.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">Care Schedule</p>
+          {pendingProjectTasks.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center gap-2 bg-white border border-stone-200 rounded-lg px-3 py-2.5 border-l-[3px] border-l-red-400"
+            >
+              <button
+                type="button"
+                onClick={() => handleCompleteProjectTask(task.id)}
+                disabled={completing === task.id}
+                className="w-4 h-4 rounded border-2 border-stone-300 hover:border-green-500 transition-colors flex items-center justify-center shrink-0"
+                aria-label="Complete task"
+              >
+                {completing === task.id && (
+                  <svg className="animate-spin size-2.5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
+              </button>
+              <span className="flex-1 text-sm text-stone-800 min-w-0 truncate">{task.title}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {task.log_type && (
+                  <span className="text-[10px] bg-green-50 text-green-700 px-1.5 py-0.5 rounded-full capitalize">
+                    {task.log_type}
+                  </span>
+                )}
+                {dueDateBadge(task.due_date)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tree tasks */}
       <div className="space-y-1.5">
-        {pending.length === 0 && !addingTask && (
+        {pending.length === 0 && pendingProjectTasks.length === 0 && !addingTask && (
           <p className="text-sm text-stone-400 py-2">No pending tasks.</p>
         )}
         {pending.map((task) => (
@@ -196,7 +260,7 @@ export function TreeTasks({ treeId, rowId, initialTasks }: TreeTasksProps) {
       </div>
 
       {/* Completed tasks */}
-      {completed.length > 0 && (
+      {(completed.length > 0 || completedProjectTasks.length > 0) && (
         <div>
           <button
             type="button"
@@ -209,10 +273,34 @@ export function TreeTasks({ treeId, rowId, initialTasks }: TreeTasksProps) {
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
-            {completed.length} completed
+            {completed.length + completedProjectTasks.length} completed
           </button>
           {showCompleted && (
             <div className="mt-1.5 space-y-1">
+              {completedProjectTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 bg-white border border-stone-100 rounded-lg px-3 py-2"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleUncompleteProjectTask(task.id)}
+                    disabled={completing === task.id}
+                    className="w-4 h-4 rounded border-2 border-green-400 bg-green-400 flex items-center justify-center shrink-0 hover:border-stone-300 hover:bg-white transition-colors"
+                    aria-label="Mark incomplete"
+                  >
+                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
+                      <path d="M10 3L5 8.5 2 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
+                  </button>
+                  <span className="flex-1 text-sm text-stone-400 line-through min-w-0 truncate">{task.title}</span>
+                  {task.completed_at && (
+                    <span className="text-[10px] text-stone-300 shrink-0">
+                      {new Date(task.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+              ))}
               {completed.map((task) => (
                 <div
                   key={task.id}

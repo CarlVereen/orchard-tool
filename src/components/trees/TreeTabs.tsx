@@ -5,7 +5,7 @@ import { LogList } from './LogList'
 import { NotesList } from './NotesList'
 import { PhotosTab } from './PhotosTab'
 import { TreeTasks } from './TreeTasks'
-import type { Log, TreeNote, TreePhoto, TreeTask } from '@/types/orchard'
+import type { Log, TreeNote, TreePhoto, TreeTask, ProjectTask } from '@/types/orchard'
 
 type Tab = 'activity' | 'tasks' | 'notes' | 'photos'
 
@@ -16,13 +16,14 @@ interface TreeTabsProps {
   notes: TreeNote[]
   photos: TreePhoto[]
   tasks: TreeTask[]
+  projectTasks: ProjectTask[]
   addLogButton: React.ReactNode
 }
 
-export function TreeTabs({ treeId, rowId, logs, notes, photos, tasks, addLogButton }: TreeTabsProps) {
+export function TreeTabs({ treeId, rowId, logs, notes, photos, tasks, projectTasks, addLogButton }: TreeTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>('activity')
 
-  const pendingTaskCount = tasks.filter((t) => !t.completed_at).length
+  const pendingTaskCount = tasks.filter((t) => !t.completed_at).length + projectTasks.filter((t) => !t.completed_at).length
 
   const tabs: { id: Tab; label: string; count?: number; highlight?: boolean }[] = [
     { id: 'activity', label: 'Activity', count: logs.length },
@@ -63,7 +64,7 @@ export function TreeTabs({ treeId, rowId, logs, notes, photos, tasks, addLogButt
 
       {/* Panels */}
       {activeTab === 'activity' && <LogList logs={logs} />}
-      {activeTab === 'tasks' && <TreeTasks treeId={treeId} rowId={rowId} initialTasks={tasks} />}
+      {activeTab === 'tasks' && <TreeTasks treeId={treeId} rowId={rowId} initialTasks={tasks} projectTasks={projectTasks} />}
       {activeTab === 'notes' && <NotesList notes={notes} treeId={treeId} />}
       {activeTab === 'photos' && <PhotosTab treeId={treeId} initialPhotos={photos} />}
     </div>
