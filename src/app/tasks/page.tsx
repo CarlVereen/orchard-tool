@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getIncompleteTasksByOrchard, getCompletedTodayByOrchard } from '@/lib/db/projects'
 import { generateExpertTasks } from '@/lib/tasks/generate-expert-tasks'
+import { EXPERT_CARE_SCHEDULES } from '@/lib/data/care-schedules'
 import { ViewToggle } from '@/components/tasks/ViewToggle'
 import { DailyViewClient } from '@/components/tasks/DailyViewClient'
 import type { DisplayTask, ProjectType } from '@/types/orchard'
@@ -44,15 +45,31 @@ export default async function TasksPage() {
     treeLabel: t.tree_label ?? undefined,
   })
 
+  // Expert care tasks are "today" if the current month falls within their care window
+  // (their due date marks the window end, not when they're due to start)
+  const currentMonth = new Date().getMonth() + 1
+
+  const isActiveExpertTask = (t: typeof incompleteTasks[number]) => {
+    if (t.project_type !== 'expert' || !t.species) return false
+    const schedule = EXPERT_CARE_SCHEDULES.find(
+      (s) => s.species === t.species && s.title === t.title
+    )
+    return schedule ? currentMonth >= schedule.monthStart && currentMonth <= schedule.monthEnd : false
+  }
+
   const todayTasks = sortTasks(
     incompleteTasks
-      .filter((t) => t.project_type !== 'permaculture' && (!t.due_date || t.due_date <= today))
+      .filter((t) => t.project_type !== 'permaculture' && (
+        !t.due_date || t.due_date <= today || isActiveExpertTask(t)
+      ))
       .map(toDisplay)
   )
 
+  const todayIds = new Set(todayTasks.map((t) => t.id))
+
   const comingUpTasks = sortTasks(
     incompleteTasks
-      .filter((t) => t.project_type !== 'permaculture' && t.due_date && t.due_date > today && t.due_date <= monthEndStr)
+      .filter((t) => t.project_type !== 'permaculture' && !todayIds.has(t.id) && t.due_date && t.due_date > today && t.due_date <= monthEndStr)
       .map(toDisplay)
   )
 
