@@ -118,13 +118,18 @@ export async function generateExpertTasks(orchardId: string): Promise<void> {
       const key = `${task.title}|${tree.id}`
       if (existingSet.has(key)) continue
 
+      // Due date = last day of the task's month window
+      const endMonth = task.monthEnd
+      const lastDay = new Date(currentYear, endMonth, 0).getDate()
+      const dueDate = `${currentYear}-${pad(endMonth)}-${pad(lastDay)}`
+
       tasksToInsert.push({
         project_id: projectId,
         tree_id: tree.id,
         title: task.title,
         description: task.description,
         priority: task.priority,
-        due_date: `${currentYear}-${pad(currentMonth)}-01`,
+        due_date: dueDate,
         log_type: task.logType,
         species: task.species,
         period,
