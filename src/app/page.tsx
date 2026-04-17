@@ -4,6 +4,7 @@ import { getOrchard } from '@/lib/db/orchards'
 import { getRowsWithTrees } from '@/lib/db/rows'
 import { getRecentLogs } from '@/lib/db/logs'
 import { generateTasksForCurrentPeriod, getPendingTaskTreeIds } from '@/lib/db/tasks'
+import { createClient } from '@/lib/supabase/server'
 import { RowHeader } from '@/components/orchard/RowHeader'
 import { RowGrid } from '@/components/orchard/RowGrid'
 import { LogTypeIcon } from '@/components/logs/LogTypeIcon'
@@ -38,19 +39,26 @@ export default async function DashboardPage() {
 
   const conditionAttentionIds = new Set(
     rows.flatMap((r) => r.trees)
-      .filter((t) => {
-        const condBad = t.condition === 'poor' || t.condition === 'dead'
-        if (condBad) return true
-        if (!t.last_log) return true
-        const days = (Date.now() - new Date(t.last_log.logged_at).getTime()) / (1000 * 60 * 60 * 24)
-        return days > 7
-      })
+      .filter((t) => t.condition === 'poor' || t.condition === 'dead')
       .map((t) => t.id)
   )
 
-  const notLoggedRecently = new Set([
+  // Count trees with overdue project tasks
+  const today = new Date().toISOString().split('T')[0]
+  const supabase = createClient()
+  const { data: overdueTasks } = await supabase
+    .from('project_tasks')
+    .select('tree_id')
+    .in('tree_id', allTreeIds)
+    .is('completed_at', null)
+    .lt('due_date', today)
+
+  const overdueTreeIds = new Set((overdueTasks ?? []).map((t) => t.tree_id as string))
+
+  const needsAttentionCount = new Set([
     ...Array.from(conditionAttentionIds),
     ...Array.from(pendingTaskTreeIds),
+    ...Array.from(overdueTreeIds),
   ]).size
 
   return (
@@ -61,9 +69,9 @@ export default async function DashboardPage() {
         <StatCard label="Logged Today" value={String(loggedTodayIds.size)} />
         <StatCard
           label="Need Attention"
-          value={String(notLoggedRecently)}
-          highlight={notLoggedRecently > 0}
-          href={notLoggedRecently > 0 ? '/attention' : undefined}
+          value={String(needsAttentionCount)}
+          highlight={needsAttentionCount > 0}
+          href={needsAttentionCount > 0 ? '/attention' : undefined}
         />
       </div>
 
