@@ -164,4 +164,5 @@ export interface DisplayTask extends ProjectTask {
   projectName: string
   projectType: ProjectType
   treeLabel?: string
+  source: 'project' | 'tree'
 }

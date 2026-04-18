@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getIncompleteTasksByOrchard, getCompletedTodayByOrchard } from '@/lib/db/projects'
+import { getIncompleteTreeTasksByOrchard } from '@/lib/db/tasks'
 import { generateExpertTasks } from '@/lib/tasks/generate-expert-tasks'
 import { EXPERT_CARE_SCHEDULES } from '@/lib/data/care-schedules'
 import { ViewToggle } from '@/components/tasks/ViewToggle'
@@ -25,9 +26,10 @@ export default async function TasksPage() {
 
   await generateExpertTasks(orchard.id)
 
-  const [incompleteTasks, completedToday] = await Promise.all([
+  const [incompleteTasks, completedToday, incompleteTreeTasks] = await Promise.all([
     getIncompleteTasksByOrchard(orchard.id),
     getCompletedTodayByOrchard(orchard.id),
+    getIncompleteTreeTasksByOrchard(orchard.id),
   ])
 
   const today = new Date().toISOString().split('T')[0]
@@ -43,7 +45,31 @@ export default async function TasksPage() {
     projectName: t.project_name,
     projectType: t.project_type,
     treeLabel: t.tree_label ?? undefined,
+    source: 'project',
   })
+
+  // Convert tree_tasks to DisplayTask format
+  const treeTasksAsDisplay: DisplayTask[] = incompleteTreeTasks.map((t) => ({
+    id: t.id,
+    project_id: t.template_id ?? '',
+    tree_id: t.tree_id,
+    title: t.title,
+    description: null,
+    priority: 1 as const,
+    due_date: t.due_date,
+    log_type: t.log_type,
+    species: null,
+    phase: null,
+    period: t.period,
+    completed_at: t.completed_at,
+    completed_batch_id: null,
+    notes: t.notes,
+    created_at: t.created_at,
+    projectName: 'Recurring Task',
+    projectType: 'user' as ProjectType,
+    treeLabel: t.tree_label ?? undefined,
+    source: 'tree' as const,
+  }))
 
   // Expert care tasks are "today" if the current month falls within their care window
   // (their due date marks the window end, not when they're due to start)
@@ -57,21 +83,32 @@ export default async function TasksPage() {
     return schedule ? currentMonth >= schedule.monthStart && currentMonth <= schedule.monthEnd : false
   }
 
-  const todayTasks = sortTasks(
-    incompleteTasks
+  // Tree tasks that are due today or overdue
+  const todayTreeTasks = treeTasksAsDisplay.filter(
+    (t) => !t.due_date || t.due_date <= today
+  )
+  // Tree tasks coming up (future due dates within a month)
+  const comingUpTreeTasks = treeTasksAsDisplay.filter(
+    (t) => t.due_date && t.due_date > today && t.due_date <= monthEndStr
+  )
+
+  const todayTasks = sortTasks([
+    ...incompleteTasks
       .filter((t) => t.project_type !== 'permaculture' && (
         !t.due_date || t.due_date <= today || isActiveExpertTask(t)
       ))
-      .map(toDisplay)
-  )
+      .map(toDisplay),
+    ...todayTreeTasks,
+  ])
 
   const todayIds = new Set(todayTasks.map((t) => t.id))
 
-  const comingUpTasks = sortTasks(
-    incompleteTasks
+  const comingUpTasks = sortTasks([
+    ...incompleteTasks
       .filter((t) => t.project_type !== 'permaculture' && !todayIds.has(t.id) && t.due_date && t.due_date > today && t.due_date <= monthEndStr)
-      .map(toDisplay)
-  )
+      .map(toDisplay),
+    ...comingUpTreeTasks,
+  ])
 
   const permacultureTasks = sortTasks(
     incompleteTasks

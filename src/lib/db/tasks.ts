@@ -277,6 +277,28 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     .upsert(tasksToInsert, { onConflict: 'tree_id,template_id,period', ignoreDuplicates: true })
 }
 
+// ── Orchard-wide tree task queries ───────────────────────────────────────────
+
+export async function getIncompleteTreeTasksByOrchard(orchardId: string): Promise<(TreeTask & { tree_label: string | null })[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('tree_tasks')
+    .select('*, tree:trees!inner(variety, position, archived_at, row:rows!inner(label, orchard_id))')
+    .eq('trees.rows.orchard_id', orchardId)
+    .is('trees.archived_at', null)
+    .is('completed_at', null)
+    .order('due_date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []).map((t) => {
+    const tree = t.tree as unknown as { variety: string | null; position: number; row: { label: string } } | null
+    return {
+      ...t,
+      tree_label: tree ? `${tree.variety ?? tree.row.label} #${tree.position}` : null,
+    }
+  })
+}
+
 // ── Attention queries ─────────────────────────────────────────────────────────
 
 export async function getPendingTaskTreeIds(treeIds: string[]): Promise<Set<string>> {

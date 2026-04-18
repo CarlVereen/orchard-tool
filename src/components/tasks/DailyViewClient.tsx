@@ -7,6 +7,8 @@ import { TaskItem, TaskGroup, CompletedTaskItem } from './TaskItem'
 import {
   completeProjectTaskAction,
   uncompleteProjectTaskAction,
+  completeTreeTaskAction,
+  uncompleteTreeTaskAction,
 } from '@/lib/actions/tasks'
 import type { DisplayTask } from '@/types/orchard'
 
@@ -116,14 +118,27 @@ export function DailyViewClient({
 
   const [completingId, setCompletingId] = useState<string | null>(null)
 
+  const findTask = (taskId: string): DisplayTask | undefined => {
+    const all = [...optimistic.today, ...optimistic.comingUp, ...optimistic.permaculture, ...optimistic.completed]
+    return all.find((t) => t.id === taskId)
+  }
+
   const handleComplete = (taskId: string) => {
+    const task = findTask(taskId)
     setCompletingId(taskId)
     startTransition(async () => {
       addOptimistic({ type: 'complete', taskId })
       try {
-        const result = await completeProjectTaskAction(taskId)
-        if (result.loggedCount > 0) {
-          toast.success(`Logged ${result.logType} on ${result.species} tree`)
+        if (task?.source === 'tree') {
+          const result = await completeTreeTaskAction(taskId)
+          if (result.loggedCount > 0) {
+            toast.success(`Logged ${result.logType}`)
+          }
+        } else {
+          const result = await completeProjectTaskAction(taskId)
+          if (result.loggedCount > 0) {
+            toast.success(`Logged ${result.logType} on ${result.species} tree`)
+          }
         }
       } catch {
         toast.error('Failed to complete task')
@@ -134,10 +149,15 @@ export function DailyViewClient({
   }
 
   const handleUncomplete = (taskId: string) => {
+    const task = findTask(taskId)
     startTransition(async () => {
       addOptimistic({ type: 'uncomplete', taskId })
       try {
-        await uncompleteProjectTaskAction(taskId)
+        if (task?.source === 'tree') {
+          await uncompleteTreeTaskAction(taskId)
+        } else {
+          await uncompleteProjectTaskAction(taskId)
+        }
       } catch {
         toast.error('Failed to undo completion')
       }

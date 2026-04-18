@@ -23,6 +23,42 @@ function revalidateTaskPaths() {
   revalidatePath('/')
 }
 
+export async function completeTreeTaskAction(taskId: string) {
+  const supabase = createClient()
+  const { data: task } = await supabase
+    .from('tree_tasks')
+    .select('*, tree:trees(row_id)')
+    .eq('id', taskId)
+    .single()
+  if (!task) throw new Error('Task not found')
+
+  const { completeTask } = await import('@/lib/db/tasks')
+  const completed = await completeTask(taskId)
+
+  // Auto-log if the task has a log_type
+  let loggedCount = 0
+  if (completed.log_type && task.tree_id) {
+    const { insertLog } = await import('@/lib/db/logs')
+    await insertLog(task.tree_id, completed.log_type as LogType, {
+      notes: completed.title,
+    })
+    loggedCount = 1
+  }
+
+  const rowId = (task.tree as unknown as { row_id: string })?.row_id
+  revalidateTaskPaths()
+  if (task.tree_id) revalidatePath(`/trees/${task.tree_id}`)
+  if (rowId) revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/attention')
+  return { loggedCount, logType: completed.log_type }
+}
+
+export async function uncompleteTreeTaskAction(taskId: string) {
+  const { uncompleteTask } = await import('@/lib/db/tasks')
+  await uncompleteTask(taskId)
+  revalidateTaskPaths()
+}
+
 export async function completeProjectTaskAction(taskId: string) {
   const supabase = createClient()
 
