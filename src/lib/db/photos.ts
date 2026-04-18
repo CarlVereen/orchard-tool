@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createBrowserClient } from '@/lib/supabase/client'
 import type { TreePhoto } from '@/types/orchard'
 
 export async function getPhotosByTree(treeId: string): Promise<TreePhoto[]> {
@@ -37,9 +36,27 @@ export async function deletePhoto(id: string, storagePath: string): Promise<void
   if (error) throw error
 }
 
-/** Returns the public URL for a photo stored in Supabase Storage */
-export function getPhotoUrl(storagePath: string): string {
-  const supabase = createBrowserClient()
-  const { data } = supabase.storage.from('tree-photos').getPublicUrl(storagePath)
-  return data.publicUrl
+/** Returns a signed URL for a photo stored in Supabase Storage (1 hour expiry) */
+export async function getSignedPhotoUrl(storagePath: string): Promise<string> {
+  const supabase = createClient()
+  const { data, error } = await supabase.storage
+    .from('tree-photos')
+    .createSignedUrl(storagePath, 3600)
+  if (error) throw error
+  return data.signedUrl
+}
+
+/** Batch-generate signed URLs for multiple photos */
+export async function getSignedPhotoUrls(storagePaths: string[]): Promise<Map<string, string>> {
+  if (storagePaths.length === 0) return new Map()
+  const supabase = createClient()
+  const { data, error } = await supabase.storage
+    .from('tree-photos')
+    .createSignedUrls(storagePaths, 3600)
+  if (error) throw error
+  const urlMap = new Map<string, string>()
+  for (const item of data ?? []) {
+    if (item.signedUrl && item.path) urlMap.set(item.path, item.signedUrl)
+  }
+  return urlMap
 }

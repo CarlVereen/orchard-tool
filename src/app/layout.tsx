@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { AppNav } from '@/components/AppNav'
+import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 
@@ -11,7 +12,10 @@ export const metadata: Metadata = {
   description: 'Track and manage your orchard trees',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   return (
     <html lang="en" className={inter.variable}>
       <head>
@@ -22,8 +26,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#1c1917" />
       </head>
       <body className="font-sans antialiased bg-stone-50 min-h-screen">
-        <AppNav />
-        <main className="max-w-5xl mx-auto px-4 py-6 pb-20 sm:pb-6">{children}</main>
+        {user && <AppNav />}
+        <main className={user ? "max-w-5xl mx-auto px-4 py-6 pb-20 sm:pb-6" : ""}>
+          {children}
+        </main>
         <Toaster richColors />
       </body>
     </html>

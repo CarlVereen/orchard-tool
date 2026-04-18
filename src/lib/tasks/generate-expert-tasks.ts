@@ -35,7 +35,7 @@ export async function generateExpertTasks(orchardId: string): Promise<void> {
     const s = (tree.species as string)?.toLowerCase().trim()
     if (!s) continue
     for (const supported of SUPPORTED_SPECIES) {
-      if (s.includes(supported)) {
+      if (new RegExp('\\b' + supported + '\\b', 'i').test(s)) {
         if (!treesBySpecies.has(supported)) treesBySpecies.set(supported, [])
         const row = tree.rows as unknown as { orchard_id: string; label: string }
         treesBySpecies.get(supported)!.push({

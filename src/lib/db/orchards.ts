@@ -13,9 +13,12 @@ export async function getOrchard(): Promise<Orchard | null> {
 
 export async function createOrchard(name: string, description?: string): Promise<Orchard> {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
   const { data, error } = await supabase
     .from('orchards')
-    .insert({ name, description: description ?? null })
+    .insert({ name, description: description ?? null, user_id: user.id })
     .select()
     .single()
   if (error) throw error

@@ -131,7 +131,7 @@ export async function getTreeSummary(treeId: string, wateringCycleDays: number |
   let nextWaterDueInDays: number | null = null
   if (wateringCycleDays && lastWatered) {
     const daysSince = (now.getTime() - new Date(lastWatered).getTime()) / (1000 * 60 * 60 * 24)
-    nextWaterDueInDays = Math.round(wateringCycleDays - daysSince)
+    nextWaterDueInDays = Math.ceil(wateringCycleDays - daysSince)
   } else if (wateringCycleDays && !lastWatered) {
     nextWaterDueInDays = 0 // overdue — never watered
   }

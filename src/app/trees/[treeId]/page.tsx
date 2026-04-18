@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getTree, getTreeSummary } from '@/lib/db/trees'
 import { getLogsForTree } from '@/lib/db/logs'
 import { getNotesByTree } from '@/lib/db/notes'
-import { getPhotosByTree } from '@/lib/db/photos'
+import { getPhotosByTree, getSignedPhotoUrls } from '@/lib/db/photos'
 import { getRows } from '@/lib/db/rows'
 import { getTasksForTree } from '@/lib/db/tasks'
 import { getProjectTasksForTree } from '@/lib/db/projects'
@@ -42,6 +42,13 @@ export default async function TreePage({ params }: TreePageProps) {
     getProjectTasksForTree(tree.id),
   ])
 
+  // Generate signed URLs for all photos (server-side, 1 hour TTL)
+  const photoUrlMap = await getSignedPhotoUrls(photos.map((p) => p.storage_path))
+  const photoUrls: Record<string, string> = {}
+  photoUrlMap.forEach((url, path) => {
+    photoUrls[path] = url
+  })
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -66,6 +73,7 @@ export default async function TreePage({ params }: TreePageProps) {
         logs={logs}
         notes={notes}
         photos={photos}
+        photoUrls={photoUrls}
         tasks={tasks}
         projectTasks={projectTasks}
         addLogButton={

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getOrchard } from '@/lib/db/orchards'
+import { SignOutButton } from './SignOutButton'
 
 export async function AppNav() {
   const orchard = await getOrchard()
@@ -27,6 +28,7 @@ export async function AppNav() {
                 Settings
               </Link>
             )}
+            <SignOutButton />
           </nav>
         </div>
       </header>

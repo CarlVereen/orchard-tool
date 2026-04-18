@@ -5,8 +5,7 @@ import { getRowsWithTrees } from '@/lib/db/rows'
 import { getRecentLogs } from '@/lib/db/logs'
 import { generateTasksForCurrentPeriod, getPendingTaskTreeIds } from '@/lib/db/tasks'
 import { createClient } from '@/lib/supabase/server'
-import { RowHeader } from '@/components/orchard/RowHeader'
-import { RowGrid } from '@/components/orchard/RowGrid'
+import { DashboardGrid } from '@/components/orchard/DashboardGrid'
 import { LogTypeIcon } from '@/components/logs/LogTypeIcon'
 import { recencyLabel } from '@/lib/recency'
 
@@ -84,14 +83,7 @@ export default async function DashboardPage() {
           </Link>
         </div>
       ) : (
-        <div className="space-y-8">
-          {rows.map((row) => (
-            <section key={row.id} className="space-y-3">
-              <RowHeader row={row} showLink />
-              <RowGrid row={row} compact />
-            </section>
-          ))}
-        </div>
+        <DashboardGrid rows={rows} />
       )}
 
       {/* Recent activity */}

@@ -3,6 +3,7 @@ export type TreeCondition = 'good' | 'fair' | 'poor' | 'dead'
 
 export interface Orchard {
   id: string
+  user_id: string
   name: string
   description: string | null
   created_at: string

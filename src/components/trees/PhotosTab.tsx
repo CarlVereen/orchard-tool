@@ -6,36 +6,59 @@ import { createClient } from '@/lib/supabase/client'
 import { addPhotoMetaAction, deletePhotoAction } from '@/lib/actions/orchard'
 import type { TreePhoto } from '@/types/orchard'
 
+const ALLOWED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'])
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+
 interface PhotosTabProps {
   treeId: string
   initialPhotos: TreePhoto[]
+  initialPhotoUrls: Record<string, string>
 }
 
-function getPublicUrl(storagePath: string): string {
-  const supabase = createClient()
-  const { data } = supabase.storage.from('tree-photos').getPublicUrl(storagePath)
-  return data.publicUrl
-}
-
-export function PhotosTab({ treeId, initialPhotos }: PhotosTabProps) {
+export function PhotosTab({ treeId, initialPhotos, initialPhotoUrls }: PhotosTabProps) {
   const [photos, setPhotos] = useState<TreePhoto[]>(initialPhotos)
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>(initialPhotoUrls)
   const [uploading, setUploading] = useState(false)
   const [viewPhoto, setViewPhoto] = useState<TreePhoto | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  function getUrl(storagePath: string): string {
+    return photoUrls[storagePath] ?? ''
+  }
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (file.size > MAX_FILE_SIZE) {
+      alert('Photo must be under 10 MB')
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
     setUploading(true)
     try {
       const supabase = createClient()
-      const ext = file.name.split('.').pop() ?? 'jpg'
+      const rawExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+      const ext = ALLOWED_EXTENSIONS.has(rawExt) ? rawExt : 'jpg'
       const path = `${treeId}/${Date.now()}.${ext}`
       const { error } = await supabase.storage.from('tree-photos').upload(path, file)
       if (error) throw error
+
+      // Generate a signed URL for the newly uploaded photo
+      const { data: signedData } = await supabase.storage
+        .from('tree-photos')
+        .createSignedUrl(path, 3600)
+
       const photo = await addPhotoMetaAction(treeId, path)
       setPhotos((prev) => [photo, ...prev])
+      if (signedData?.signedUrl) {
+        setPhotoUrls((prev) => ({ ...prev, [path]: signedData.signedUrl }))
+      }
     } catch (err) {
       console.error('Upload failed:', err)
     } finally {
@@ -100,7 +123,7 @@ export function PhotosTab({ treeId, initialPhotos }: PhotosTabProps) {
               onClick={() => setViewPhoto(photo)}
             >
               <Image
-                src={getPublicUrl(photo.storage_path)}
+                src={getUrl(photo.storage_path)}
                 alt={photo.caption ?? 'Tree photo'}
                 fill
                 className="object-cover"
@@ -135,7 +158,7 @@ export function PhotosTab({ treeId, initialPhotos }: PhotosTabProps) {
         >
           <div className="relative max-w-2xl w-full max-h-[80vh] aspect-square" onClick={(e) => e.stopPropagation()}>
             <Image
-              src={getPublicUrl(viewPhoto.storage_path)}
+              src={getUrl(viewPhoto.storage_path)}
               alt={viewPhoto.caption ?? 'Tree photo'}
               fill
               className="object-contain"
