@@ -96,7 +96,7 @@ export interface TaskTemplate {
   orchard_id: string
   title: string
   description: string | null
-  schedule_type: 'annual' | 'monthly'
+  schedule_type: 'annual' | 'monthly' | 'weekly' | 'daily'
   month_start: number
   month_end: number
   stagger_by_row: boolean

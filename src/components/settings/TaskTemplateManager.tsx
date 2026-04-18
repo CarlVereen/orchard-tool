@@ -27,6 +27,8 @@ function scheduleLabel(t: TaskTemplate) {
   if (t.schedule_type === 'annual') {
     return `Annual · ${MONTHS[t.month_start - 1]}–${MONTHS[t.month_end - 1]}`
   }
+  if (t.schedule_type === 'weekly') return 'Weekly'
+  if (t.schedule_type === 'daily') return 'Daily'
   return t.stagger_by_row ? 'Monthly · Staggered by row' : 'Monthly'
 }
 
@@ -45,7 +47,7 @@ interface TemplateFormProps {
 }
 
 function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFormProps) {
-  const [scheduleType, setScheduleType] = useState<'annual' | 'monthly'>(
+  const [scheduleType, setScheduleType] = useState<'annual' | 'monthly' | 'weekly' | 'daily'>(
     initial?.schedule_type ?? 'annual'
   )
   const [targetScope, setTargetScope] = useState<TaskTargetScope>(initial?.target_scope ?? 'all')
@@ -105,8 +107,8 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
 
       <div className="space-y-1.5">
         <Label>Schedule type</Label>
-        <div className="flex gap-2">
-          {(['annual', 'monthly'] as const).map((s) => (
+        <div className="flex gap-2 flex-wrap">
+          {(['daily', 'weekly', 'monthly', 'annual'] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -149,6 +151,14 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
             </select>
           </div>
         </div>
+      )}
+
+      {(scheduleType === 'weekly' || scheduleType === 'daily') && (
+        <>
+          <input type="hidden" name="month_start" value="1" />
+          <input type="hidden" name="month_end" value="12" />
+          <input type="hidden" name="stagger_by_row" value="false" />
+        </>
       )}
 
       {scheduleType === 'monthly' && (

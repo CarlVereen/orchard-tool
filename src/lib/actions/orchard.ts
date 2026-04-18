@@ -274,7 +274,7 @@ export async function createTemplateAction(
 ) {
   const title = (formData.get('title') as string)?.trim()
   if (!title) throw new Error('Template title is required')
-  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly'
+  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly' | 'weekly' | 'daily'
   const monthStart = parseInt(formData.get('month_start') as string) || 1
   const monthEnd = parseInt(formData.get('month_end') as string) || 12
   const staggerByRow = formData.get('stagger_by_row') === 'true'
@@ -308,7 +308,7 @@ export async function updateTemplateAction(
 ) {
   const title = (formData.get('title') as string)?.trim()
   if (!title) throw new Error('Template title is required')
-  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly'
+  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly' | 'weekly' | 'daily'
   const monthStart = parseInt(formData.get('month_start') as string) || 1
   const monthEnd = parseInt(formData.get('month_end') as string) || 12
   const staggerByRow = formData.get('stagger_by_row') === 'true'

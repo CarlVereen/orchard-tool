@@ -71,7 +71,7 @@ export async function deleteTask(id: string): Promise<void> {
 type TemplateFields = {
   title: string
   description?: string | null
-  schedule_type: 'annual' | 'monthly'
+  schedule_type: 'annual' | 'monthly' | 'weekly' | 'daily'
   month_start: number
   month_end: number
   stagger_by_row: boolean
@@ -194,6 +194,14 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     period: string
   }[] = []
 
+  // ISO week number helper
+  const isoWeek = (d: Date) => {
+    const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7))
+    const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
+    return Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  }
+
   for (const template of activeTemplates) {
     let period: string
     let inWindow: boolean
@@ -201,6 +209,12 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     if (template.schedule_type === 'annual') {
       period = String(currentYear)
       inWindow = currentMonth >= template.month_start && currentMonth <= template.month_end
+    } else if (template.schedule_type === 'weekly') {
+      period = `${currentYear}-W${pad(isoWeek(now))}`
+      inWindow = true
+    } else if (template.schedule_type === 'daily') {
+      period = `${currentYear}-${pad(currentMonth)}-${pad(now.getDate())}`
+      inWindow = true
     } else {
       period = `${currentYear}-${pad(currentMonth)}`
       inWindow = true
@@ -228,6 +242,14 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
       let dueDate: string
       if (template.schedule_type === 'annual') {
         dueDate = `${currentYear}-${pad(template.month_start)}-01`
+      } else if (template.schedule_type === 'daily') {
+        dueDate = `${currentYear}-${pad(currentMonth)}-${pad(now.getDate())}`
+      } else if (template.schedule_type === 'weekly') {
+        // Due on Monday of the current week
+        const dayOfWeek = now.getDay() // 0=Sun
+        const monday = new Date(now)
+        monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
+        dueDate = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`
       } else if (template.stagger_by_row && template.target_scope !== 'trees') {
         const day = Math.floor((rowIndex / targetRows.length) * daysInMonth) + 1
         dueDate = `${currentYear}-${pad(currentMonth)}-${pad(day)}`
