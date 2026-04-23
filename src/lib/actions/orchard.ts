@@ -97,7 +97,7 @@ export async function updateTreeAction(treeId: string, rowId: string, formData: 
   await updateTree(treeId, {
     variety: variety?.trim() ?? null,
     species: species?.trim() ?? null,
-    planted_at: plantedAt ?? null,
+    planted_at: plantedAt?.trim() ? plantedAt : null,
     notes: notes?.trim() ?? null,
     rootstock: rootstock?.trim() ?? null,
     condition: condition ?? 'good',
