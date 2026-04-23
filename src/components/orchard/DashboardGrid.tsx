@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { RowHeader } from './RowHeader'
 import { RowGrid } from './RowGrid'
 import { Input } from '@/components/ui/input'
 import type { RowWithTrees, TreeCondition } from '@/types/orchard'
+
+const EXPANDED_ROWS_STORAGE_KEY = 'orchard:expandedRows'
 
 interface DashboardGridProps {
   rows: RowWithTrees[]
@@ -16,6 +18,40 @@ export function DashboardGrid({ rows }: DashboardGridProps) {
   const [search, setSearch] = useState('')
   const [conditionFilter, setConditionFilter] = useState<Set<TreeCondition>>(new Set())
   const [speciesFilter, setSpeciesFilter] = useState<Set<string>>(new Set())
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // Load persisted expanded state on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(EXPANDED_ROWS_STORAGE_KEY)
+      if (raw) setExpandedIds(new Set(JSON.parse(raw) as string[]))
+    } catch {
+      // ignore malformed storage
+    }
+  }, [])
+
+  function toggleRowExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      try {
+        localStorage.setItem(EXPANDED_ROWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+      } catch {
+        // ignore storage failures
+      }
+      return next
+    })
+  }
+
+  function setAllExpanded(expanded: boolean) {
+    const next = expanded ? new Set(rows.map((r) => r.id)) : new Set<string>()
+    setExpandedIds(next)
+    try {
+      localStorage.setItem(EXPANDED_ROWS_STORAGE_KEY, JSON.stringify(Array.from(next)))
+    } catch {
+      // ignore storage failures
+    }
+  }
 
   // Derive unique species from all trees
   const allSpecies = useMemo(() => {
@@ -162,19 +198,63 @@ export function DashboardGrid({ rows }: DashboardGridProps) {
         )}
       </div>
 
+      {/* Expand / collapse all */}
+      {filteredRows.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setAllExpanded(expandedIds.size < rows.length)}
+            className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+          >
+            {expandedIds.size < rows.length ? 'Expand all' : 'Collapse all'}
+          </button>
+        </div>
+      )}
+
       {/* Filtered row grids */}
       {filteredRows.length === 0 ? (
         <div className="text-center py-16 text-stone-400">
           <p className="text-sm">No trees match your filters.</p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {filteredRows.map((row) => (
-            <section key={row.id} className="space-y-3">
-              <RowHeader row={row} showLink />
-              <RowGrid row={row} compact />
-            </section>
-          ))}
+        <div className="space-y-3">
+          {filteredRows.map((row) => {
+            // When a filter is active, always show matching trees; otherwise honor per-row toggle.
+            const expanded = hasActiveFilter || expandedIds.has(row.id)
+            return (
+              <section key={row.id} className="bg-white border border-stone-200 rounded-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => toggleRowExpanded(row.id)}
+                    disabled={hasActiveFilter}
+                    aria-expanded={expanded}
+                    aria-controls={`row-grid-${row.id}`}
+                    aria-label={expanded ? `Collapse ${row.label}` : `Expand ${row.label}`}
+                    className="w-8 h-8 -m-2 flex items-center justify-center shrink-0 rounded hover:bg-stone-50 disabled:hover:bg-transparent transition-colors"
+                  >
+                    <svg
+                      className={`w-3 h-3 text-stone-400 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <RowHeader row={row} showLink />
+                  </div>
+                </div>
+                {expanded && (
+                  <div id={`row-grid-${row.id}`} className="border-t border-stone-100 p-4">
+                    <RowGrid row={row} compact />
+                  </div>
+                )}
+              </section>
+            )
+          })}
         </div>
       )}
     </div>
