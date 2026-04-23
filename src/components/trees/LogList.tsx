@@ -63,6 +63,7 @@ const LOG_LABELS: Record<string, string> = {
   fertilize: 'Fertilized',
   production: 'Harvest',
   prune: 'Pruned',
+  mow: 'Mowed',
   scout: 'Scouted',
   note: 'Note',
 }

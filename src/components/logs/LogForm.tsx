@@ -9,13 +9,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { LogTypeIcon } from './LogTypeIcon'
 import type { LogType } from '@/types/orchard'
 
-const LOG_TYPES: LogType[] = ['water', 'fertilize', 'production', 'prune', 'scout', 'note']
+const LOG_TYPES: LogType[] = ['water', 'fertilize', 'production', 'prune', 'mow', 'scout', 'note']
 
 const LOG_LABELS: Record<LogType, string> = {
   water: 'Water',
   fertilize: 'Fertilize',
   production: 'Harvest',
   prune: 'Prune',
+  mow: 'Mow',
   scout: 'Scout',
   note: 'Note',
 }

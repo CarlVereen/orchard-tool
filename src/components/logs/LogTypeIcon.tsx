@@ -6,6 +6,7 @@ const icons: Record<LogType, { emoji: string; label: string; color: string }> = 
   production:{ emoji: '🧺', label: 'Production',  color: 'text-amber-500' },
   note:      { emoji: '📝', label: 'Note',        color: 'text-stone-400' },
   prune:     { emoji: '✂️', label: 'Pruned',      color: 'text-stone-600' },
+  mow:       { emoji: '🌾', label: 'Mowed',       color: 'text-lime-600' },
   scout:     { emoji: '🔍', label: 'Scouted',     color: 'text-orange-500' },
 }
 
