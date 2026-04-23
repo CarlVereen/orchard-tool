@@ -10,9 +10,18 @@ import {
   toggleTemplateActiveAction,
   deleteTemplateAction,
 } from '@/lib/actions/orchard'
-import type { TaskTemplate, TaskTargetScope, LogType, Row, TreeWithLastLog } from '@/types/orchard'
+import type { TaskTemplate, TaskTargetScope, TaskScheduleType, LogType, Row, TreeWithLastLog } from '@/types/orchard'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WEEKDAYS: { value: number; short: string }[] = [
+  { value: 0, short: 'Sun' },
+  { value: 1, short: 'Mon' },
+  { value: 2, short: 'Tue' },
+  { value: 3, short: 'Wed' },
+  { value: 4, short: 'Thu' },
+  { value: 5, short: 'Fri' },
+  { value: 6, short: 'Sat' },
+]
 
 const LOG_TYPE_OPTIONS: { value: LogType; label: string }[] = [
   { value: 'water', label: 'Water' },
@@ -28,8 +37,16 @@ function scheduleLabel(t: TaskTemplate) {
   if (t.schedule_type === 'annual') {
     return `Annual · ${MONTHS[t.month_start - 1]}–${MONTHS[t.month_end - 1]}`
   }
-  if (t.schedule_type === 'weekly') return 'Weekly'
+  if (t.schedule_type === 'weekly') {
+    if (t.weekdays && t.weekdays.length > 0) {
+      return `Weekly · ${t.weekdays.map((w) => WEEKDAYS[w].short).join(', ')}`
+    }
+    return 'Weekly'
+  }
   if (t.schedule_type === 'daily') return 'Daily'
+  if (t.schedule_type === 'interval') {
+    return t.interval_days ? `Every ${t.interval_days} day${t.interval_days === 1 ? '' : 's'}` : 'Interval'
+  }
   return t.stagger_by_row ? 'Monthly · Staggered by row' : 'Monthly'
 }
 
@@ -56,12 +73,16 @@ interface TemplateFormProps {
 }
 
 function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFormProps) {
-  const [scheduleType, setScheduleType] = useState<'annual' | 'monthly' | 'weekly' | 'daily'>(
+  const [scheduleType, setScheduleType] = useState<TaskScheduleType>(
     initial?.schedule_type ?? 'annual'
   )
   const [targetScope, setTargetScope] = useState<TaskTargetScope>(initial?.target_scope ?? 'all')
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>(initial?.row_ids ?? [])
   const [selectedTreeIds, setSelectedTreeIds] = useState<string[]>(initial?.tree_ids ?? [])
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>(initial?.weekdays ?? [])
+  const [intervalDays, setIntervalDays] = useState<string>(
+    initial?.interval_days ? String(initial.interval_days) : '3'
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,6 +91,9 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
 
   const toggleTree = (id: string) =>
     setSelectedTreeIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+
+  const toggleWeekday = (v: number) =>
+    setSelectedWeekdays((prev) => prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v].sort((a, b) => a - b))
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -117,7 +141,7 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
       <div className="space-y-1.5">
         <Label>Schedule type</Label>
         <div className="flex gap-2 flex-wrap">
-          {(['daily', 'weekly', 'monthly', 'annual'] as const).map((s) => (
+          {(['daily', 'interval', 'weekly', 'monthly', 'annual'] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -134,6 +158,50 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
         </div>
         <input type="hidden" name="schedule_type" value={scheduleType} />
       </div>
+
+      {scheduleType === 'interval' && (
+        <div className="space-y-1.5">
+          <Label htmlFor="interval_days">Every how many days?</Label>
+          <Input
+            id="interval_days"
+            name="interval_days"
+            type="number"
+            min="1"
+            value={intervalDays}
+            onChange={(e) => setIntervalDays(e.target.value)}
+            required
+          />
+          <p className="text-xs text-stone-400">Next task is created this many days after the previous one is completed.</p>
+        </div>
+      )}
+
+      {scheduleType === 'weekly' && (
+        <div className="space-y-1.5">
+          <Label>Days of the week <span className="text-stone-400 font-normal">(optional — leave empty for Monday)</span></Label>
+          <div className="flex gap-1.5 flex-wrap">
+            {WEEKDAYS.map((d) => {
+              const selected = selectedWeekdays.includes(d.value)
+              return (
+                <button
+                  key={d.value}
+                  type="button"
+                  onClick={() => toggleWeekday(d.value)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                    selected
+                      ? 'border-stone-800 bg-stone-800 text-white'
+                      : 'border-stone-200 text-stone-600 hover:border-stone-300'
+                  }`}
+                >
+                  {d.short}
+                </button>
+              )
+            })}
+          </div>
+          {selectedWeekdays.map((v) => (
+            <input key={v} type="hidden" name="weekdays" value={v} />
+          ))}
+        </div>
+      )}
 
       {scheduleType === 'annual' && (
         <div className="grid grid-cols-2 gap-3">
@@ -162,7 +230,7 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
         </div>
       )}
 
-      {(scheduleType === 'weekly' || scheduleType === 'daily') && (
+      {(scheduleType === 'weekly' || scheduleType === 'daily' || scheduleType === 'interval') && (
         <>
           <input type="hidden" name="month_start" value="1" />
           <input type="hidden" name="month_end" value="12" />

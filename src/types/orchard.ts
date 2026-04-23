@@ -92,18 +92,22 @@ export interface LogWithTree extends Log {
 
 export type TaskTargetScope = 'all' | 'rows' | 'trees' | 'per_row'
 
+export type TaskScheduleType = 'annual' | 'monthly' | 'weekly' | 'daily' | 'interval'
+
 export interface TaskTemplate {
   id: string
   orchard_id: string
   title: string
   description: string | null
-  schedule_type: 'annual' | 'monthly' | 'weekly' | 'daily'
+  schedule_type: TaskScheduleType
   month_start: number
   month_end: number
   stagger_by_row: boolean
   target_scope: TaskTargetScope
   log_type: LogType | null
   active: boolean
+  interval_days: number | null
+  weekdays: number[] | null
   created_at: string
   row_ids: string[]
   tree_ids: string[]

@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { TreeTask, TaskTemplate, TaskTargetScope, LogType } from '@/types/orchard'
+import type { TreeTask, TaskTemplate, TaskTargetScope, TaskScheduleType, LogType } from '@/types/orchard'
 
 // ── Task CRUD ─────────────────────────────────────────────────────────────────
 
@@ -71,13 +71,15 @@ export async function deleteTask(id: string): Promise<void> {
 type TemplateFields = {
   title: string
   description?: string | null
-  schedule_type: 'annual' | 'monthly' | 'weekly' | 'daily'
+  schedule_type: TaskScheduleType
   month_start: number
   month_end: number
   stagger_by_row: boolean
   target_scope: TaskTargetScope
   log_type: LogType | null
   active: boolean
+  interval_days: number | null
+  weekdays: number[] | null
 }
 
 export async function getTemplates(orchardId: string): Promise<TaskTemplate[]> {
@@ -211,7 +213,97 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     return Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
   }
 
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+  const mondayOf = (d: Date) => {
+    const dayOfWeek = d.getDay() // 0=Sun
+    const m = new Date(d)
+    m.setDate(d.getDate() - ((dayOfWeek + 6) % 7))
+    m.setHours(0, 0, 0, 0)
+    return m
+  }
+
+  type RowWithTrees = { id: string; sort_order: number; trees: { id: string }[] }
+
   for (const template of activeTemplates) {
+    // Determine target rows (shared across all schedule types)
+    let targetRows: RowWithTrees[]
+    if (template.target_scope === 'rows' || template.target_scope === 'per_row') {
+      targetRows = (rows as RowWithTrees[]).filter((r) => template.row_ids.includes(r.id))
+    } else if (template.target_scope === 'trees') {
+      targetRows = (rows as RowWithTrees[]).map((r) => ({
+        ...r,
+        trees: r.trees.filter((t) => template.tree_ids.includes(t.id)),
+      })).filter((r) => r.trees.length > 0)
+    } else {
+      targetRows = rows as RowWithTrees[]
+    }
+
+    if (targetRows.length === 0) continue
+
+    // ── Interval schedule: state-based, not period-based ─────────────────────
+    if (template.schedule_type === 'interval') {
+      if (!template.interval_days || template.interval_days < 1) continue
+
+      const isRowLevel = template.target_scope === 'per_row'
+      const targetIds: string[] = isRowLevel
+        ? targetRows.map((r) => r.id)
+        : targetRows.flatMap((r) => r.trees.map((t) => t.id))
+      if (targetIds.length === 0) continue
+
+      const tableName = isRowLevel ? 'row_tasks' : 'tree_tasks'
+      const idCol = isRowLevel ? 'row_id' : 'tree_id'
+      const { data: existing } = await supabase
+        .from(tableName)
+        .select(`${idCol}, completed_at, created_at`)
+        .eq('template_id', template.id)
+        .in(idCol, targetIds)
+
+      // Track the most recent task per target (by created_at)
+      const mostRecent = new Map<string, { completed_at: string | null; created_at: string }>()
+      for (const row of (existing as { [k: string]: string | null }[] | null) ?? []) {
+        const id = row[idCol] as string
+        const prev = mostRecent.get(id)
+        const createdAt = row.created_at as string
+        if (!prev || createdAt > prev.created_at) {
+          mostRecent.set(id, { completed_at: row.completed_at, created_at: createdAt })
+        }
+      }
+
+      const nowMs = now.getTime()
+      const intervalMs = template.interval_days * 86400000
+
+      for (const targetId of targetIds) {
+        const last = mostRecent.get(targetId)
+        let dueDate: string
+        if (!last) {
+          dueDate = ymd(now)
+        } else if (!last.completed_at) {
+          continue // outstanding task still open
+        } else {
+          const nextDueMs = new Date(last.completed_at).getTime() + intervalMs
+          if (nextDueMs > nowMs) continue
+          dueDate = ymd(new Date(nextDueMs))
+        }
+        const intervalPeriod = `interval-${dueDate}`
+        const payload = {
+          template_id: template.id,
+          title: template.title,
+          log_type: template.log_type,
+          due_date: dueDate,
+          period: intervalPeriod,
+        }
+        if (isRowLevel) {
+          rowTasksToInsert.push({ row_id: targetId, ...payload })
+        } else {
+          tasksToInsert.push({ tree_id: targetId, ...payload })
+        }
+      }
+      continue
+    }
+
+    // ── Period-based schedules ───────────────────────────────────────────────
     let period: string
     let inWindow: boolean
 
@@ -231,21 +323,43 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
 
     if (!inWindow) continue
 
-    // Determine target rows
-    type RowWithTrees = { id: string; sort_order: number; trees: { id: string }[] }
-    let targetRows: RowWithTrees[]
-    if (template.target_scope === 'rows' || template.target_scope === 'per_row') {
-      targetRows = (rows as RowWithTrees[]).filter((r) => template.row_ids.includes(r.id))
-    } else if (template.target_scope === 'trees') {
-      targetRows = (rows as RowWithTrees[]).map((r) => ({
-        ...r,
-        trees: r.trees.filter((t) => template.tree_ids.includes(t.id)),
-      })).filter((r) => r.trees.length > 0)
-    } else {
-      targetRows = rows as RowWithTrees[]
-    }
+    // ── Weekly with specific weekdays — emit one task per selected weekday ──
+    if (template.schedule_type === 'weekly' && template.weekdays && template.weekdays.length > 0) {
+      const weekMonday = mondayOf(now)
+      for (const weekday of template.weekdays) {
+        // weekday: 0=Sun..6=Sat; offset from Monday = (weekday + 6) % 7
+        const offset = (weekday + 6) % 7
+        const due = new Date(weekMonday)
+        due.setDate(weekMonday.getDate() + offset)
+        const dueDate = ymd(due)
+        const weekdayPeriod = `${period}-${weekday}`
 
-    if (targetRows.length === 0) continue
+        for (const row of targetRows) {
+          if (template.target_scope === 'per_row') {
+            rowTasksToInsert.push({
+              row_id: row.id,
+              template_id: template.id,
+              title: template.title,
+              log_type: template.log_type,
+              due_date: dueDate,
+              period: weekdayPeriod,
+            })
+            continue
+          }
+          for (const tree of row.trees) {
+            tasksToInsert.push({
+              tree_id: tree.id,
+              template_id: template.id,
+              title: template.title,
+              log_type: template.log_type,
+              due_date: dueDate,
+              period: weekdayPeriod,
+            })
+          }
+        }
+      }
+      continue
+    }
 
     targetRows.forEach((row, rowIndex) => {
       let dueDate: string
@@ -254,11 +368,8 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
       } else if (template.schedule_type === 'daily') {
         dueDate = `${currentYear}-${pad(currentMonth)}-${pad(now.getDate())}`
       } else if (template.schedule_type === 'weekly') {
-        // Due on Monday of the current week
-        const dayOfWeek = now.getDay() // 0=Sun
-        const monday = new Date(now)
-        monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7))
-        dueDate = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`
+        // Legacy weekly (no weekdays) — due on Monday of the current week
+        dueDate = ymd(mondayOf(now))
       } else if (template.stagger_by_row && template.target_scope !== 'trees') {
         const day = Math.floor((rowIndex / targetRows.length) * daysInMonth) + 1
         dueDate = `${currentYear}-${pad(currentMonth)}-${pad(day)}`

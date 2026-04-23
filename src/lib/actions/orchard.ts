@@ -18,7 +18,7 @@ import {
   toggleTemplateActive,
   deleteTemplate,
 } from '@/lib/db/tasks'
-import type { LogType, TreeCondition, TaskTargetScope } from '@/types/orchard'
+import type { LogType, TreeCondition, TaskTargetScope, TaskScheduleType } from '@/types/orchard'
 
 // ── Orchard ──────────────────────────────────────────────────────────────────
 
@@ -266,6 +266,38 @@ export async function deleteTaskAction(taskId: string, treeId: string) {
 
 // ── Task Templates ────────────────────────────────────────────────────────────
 
+function parseScheduleFields(formData: FormData) {
+  const scheduleType = formData.get('schedule_type') as TaskScheduleType
+  const monthStart = parseInt(formData.get('month_start') as string) || 1
+  const monthEnd = parseInt(formData.get('month_end') as string) || 12
+  const staggerByRow = formData.get('stagger_by_row') === 'true'
+
+  let intervalDays: number | null = null
+  if (scheduleType === 'interval') {
+    const raw = parseInt(formData.get('interval_days') as string)
+    if (!raw || raw < 1) throw new Error('Interval (days) must be a positive number')
+    intervalDays = raw
+  }
+
+  let weekdays: number[] | null = null
+  if (scheduleType === 'weekly') {
+    const picked = formData
+      .getAll('weekdays')
+      .map((v) => parseInt(v as string))
+      .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+    weekdays = picked.length > 0 ? Array.from(new Set(picked)).sort((a, b) => a - b) : null
+  }
+
+  return {
+    schedule_type: scheduleType,
+    month_start: monthStart,
+    month_end: monthEnd,
+    stagger_by_row: staggerByRow,
+    interval_days: intervalDays,
+    weekdays,
+  }
+}
+
 export async function createTemplateAction(
   orchardId: string,
   formData: FormData,
@@ -274,10 +306,6 @@ export async function createTemplateAction(
 ) {
   const title = (formData.get('title') as string)?.trim()
   if (!title) throw new Error('Template title is required')
-  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly' | 'weekly' | 'daily'
-  const monthStart = parseInt(formData.get('month_start') as string) || 1
-  const monthEnd = parseInt(formData.get('month_end') as string) || 12
-  const staggerByRow = formData.get('stagger_by_row') === 'true'
   const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
   const logType = (formData.get('log_type') as LogType | '') || null
 
@@ -286,10 +314,7 @@ export async function createTemplateAction(
     {
       title,
       description: (formData.get('description') as string)?.trim() || null,
-      schedule_type: scheduleType,
-      month_start: monthStart,
-      month_end: monthEnd,
-      stagger_by_row: staggerByRow,
+      ...parseScheduleFields(formData),
       target_scope: targetScope,
       log_type: logType || null,
       active: true,
@@ -308,10 +333,6 @@ export async function updateTemplateAction(
 ) {
   const title = (formData.get('title') as string)?.trim()
   if (!title) throw new Error('Template title is required')
-  const scheduleType = formData.get('schedule_type') as 'annual' | 'monthly' | 'weekly' | 'daily'
-  const monthStart = parseInt(formData.get('month_start') as string) || 1
-  const monthEnd = parseInt(formData.get('month_end') as string) || 12
-  const staggerByRow = formData.get('stagger_by_row') === 'true'
   const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
   const logType = (formData.get('log_type') as LogType | '') || null
 
@@ -320,10 +341,7 @@ export async function updateTemplateAction(
     {
       title,
       description: (formData.get('description') as string)?.trim() || null,
-      schedule_type: scheduleType,
-      month_start: monthStart,
-      month_end: monthEnd,
-      stagger_by_row: staggerByRow,
+      ...parseScheduleFields(formData),
       target_scope: targetScope,
       log_type: logType || null,
       active: formData.get('active') !== 'false',
