@@ -12,6 +12,17 @@ export async function getRows(orchardId: string): Promise<Row[]> {
   return data ?? []
 }
 
+export async function getActiveTreeIdsForRow(rowId: string): Promise<string[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('trees')
+    .select('id')
+    .eq('row_id', rowId)
+    .is('archived_at', null)
+  if (error) throw error
+  return (data ?? []).map((t) => t.id)
+}
+
 export async function getRowWithTrees(rowId: string): Promise<RowWithTrees | null> {
   const supabase = createClient()
   const { data: row, error: rowError } = await supabase

@@ -14,6 +14,14 @@ import {
   skipPhaseTasks,
   updateProjectTask,
 } from '@/lib/db/projects'
+import {
+  getRowTask,
+  completeRowTask,
+  uncompleteRowTask,
+} from '@/lib/db/row-tasks'
+import { getActiveTreeIdsForRow } from '@/lib/db/rows'
+import { logForRowAndTrees, deleteLogsByBatch } from '@/lib/db/logs'
+import { deleteRowLogsByBatch } from '@/lib/db/row-logs'
 import { generatePermaculturePhaseTasks } from '@/lib/tasks/generate-permaculture-tasks'
 import type { LogType } from '@/types/orchard'
 
@@ -57,6 +65,41 @@ export async function uncompleteTreeTaskAction(taskId: string) {
   const { uncompleteTask } = await import('@/lib/db/tasks')
   await uncompleteTask(taskId)
   revalidateTaskPaths()
+}
+
+export async function completeRowTaskAction(rowTaskId: string, rowId: string) {
+  const task = await getRowTask(rowTaskId)
+  if (!task) throw new Error('Row task not found')
+  if (task.completed_at) return { loggedCount: 0, logType: task.log_type }
+
+  let batchId: string | null = null
+  let loggedCount = 0
+  if (task.log_type) {
+    const treeIds = await getActiveTreeIdsForRow(rowId)
+    const result = await logForRowAndTrees(rowId, treeIds, task.log_type, {
+      notes: task.title,
+    })
+    batchId = result.batchId
+    loggedCount = treeIds.length + 1
+  }
+
+  await completeRowTask(rowTaskId, batchId)
+
+  revalidateTaskPaths()
+  revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/attention')
+  return { loggedCount, logType: task.log_type }
+}
+
+export async function uncompleteRowTaskAction(rowTaskId: string, rowId: string) {
+  const batchId = await uncompleteRowTask(rowTaskId)
+  if (batchId) {
+    await deleteRowLogsByBatch(batchId)
+    await deleteLogsByBatch(batchId)
+  }
+  revalidateTaskPaths()
+  revalidatePath(`/rows/${rowId}`)
+  revalidatePath('/attention')
 }
 
 export async function completeProjectTaskAction(taskId: string) {

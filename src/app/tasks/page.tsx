@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getOrchard } from '@/lib/db/orchards'
 import { getIncompleteTasksByOrchard, getCompletedTodayByOrchard } from '@/lib/db/projects'
 import { getIncompleteTreeTasksByOrchard } from '@/lib/db/tasks'
+import { getIncompleteRowTasksByOrchard } from '@/lib/db/row-tasks'
 import { generateExpertTasks } from '@/lib/tasks/generate-expert-tasks'
 import { EXPERT_CARE_SCHEDULES } from '@/lib/data/care-schedules'
 import { ViewToggle } from '@/components/tasks/ViewToggle'
@@ -26,10 +27,11 @@ export default async function TasksPage() {
 
   await generateExpertTasks(orchard.id)
 
-  const [incompleteTasks, completedToday, incompleteTreeTasks] = await Promise.all([
+  const [incompleteTasks, completedToday, incompleteTreeTasks, incompleteRowTasks] = await Promise.all([
     getIncompleteTasksByOrchard(orchard.id),
     getCompletedTodayByOrchard(orchard.id),
     getIncompleteTreeTasksByOrchard(orchard.id),
+    getIncompleteRowTasksByOrchard(orchard.id),
   ])
 
   const today = new Date().toISOString().split('T')[0]
@@ -71,6 +73,30 @@ export default async function TasksPage() {
     source: 'tree' as const,
   }))
 
+  // Convert row_tasks to DisplayTask format
+  const rowTasksAsDisplay: DisplayTask[] = incompleteRowTasks.map((t) => ({
+    id: t.id,
+    project_id: t.template_id ?? '',
+    tree_id: null,
+    title: t.title,
+    description: null,
+    priority: 1 as const,
+    due_date: t.due_date,
+    log_type: t.log_type,
+    species: null,
+    phase: null,
+    period: t.period,
+    completed_at: t.completed_at,
+    completed_batch_id: t.completed_batch_id,
+    notes: t.notes,
+    created_at: t.created_at,
+    projectName: 'Row Task',
+    projectType: 'user' as ProjectType,
+    treeLabel: `${t.row_label} · ${t.title}`,
+    rowId: t.row_id,
+    source: 'row' as const,
+  }))
+
   // Expert care tasks are "today" if the current month falls within their care window
   // (their due date marks the window end, not when they're due to start)
   const currentMonth = new Date().getMonth() + 1
@@ -92,6 +118,13 @@ export default async function TasksPage() {
     (t) => t.due_date && t.due_date > today && t.due_date <= monthEndStr
   )
 
+  const todayRowTasks = rowTasksAsDisplay.filter(
+    (t) => !t.due_date || t.due_date <= today
+  )
+  const comingUpRowTasks = rowTasksAsDisplay.filter(
+    (t) => t.due_date && t.due_date > today && t.due_date <= monthEndStr
+  )
+
   const todayTasks = sortTasks([
     ...incompleteTasks
       .filter((t) => t.project_type !== 'permaculture' && (
@@ -99,6 +132,7 @@ export default async function TasksPage() {
       ))
       .map(toDisplay),
     ...todayTreeTasks,
+    ...todayRowTasks,
   ])
 
   const todayIds = new Set(todayTasks.map((t) => t.id))
@@ -108,6 +142,7 @@ export default async function TasksPage() {
       .filter((t) => t.project_type !== 'permaculture' && !todayIds.has(t.id) && t.due_date && t.due_date > today && t.due_date <= monthEndStr)
       .map(toDisplay),
     ...comingUpTreeTasks,
+    ...comingUpRowTasks,
   ])
 
   const permacultureTasks = sortTasks(

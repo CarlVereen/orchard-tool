@@ -18,6 +18,7 @@ const LOG_TYPE_OPTIONS: { value: LogType; label: string }[] = [
   { value: 'water', label: 'Water' },
   { value: 'fertilize', label: 'Fertilize' },
   { value: 'prune', label: 'Prune' },
+  { value: 'mow', label: 'Mow' },
   { value: 'scout', label: 'Scout' },
   { value: 'production', label: 'Production' },
   { value: 'note', label: 'Note' },
@@ -34,8 +35,16 @@ function scheduleLabel(t: TaskTemplate) {
 
 function targetLabel(t: TaskTemplate) {
   if (t.target_scope === 'rows') return `${t.row_ids.length} row${t.row_ids.length === 1 ? '' : 's'}`
+  if (t.target_scope === 'per_row') return `${t.row_ids.length} row${t.row_ids.length === 1 ? '' : 's'} (per-row)`
   if (t.target_scope === 'trees') return `${t.tree_ids.length} tree${t.tree_ids.length === 1 ? '' : 's'}`
   return 'All trees'
+}
+
+const SCOPE_LABEL: Record<TaskTargetScope, string> = {
+  all: 'All trees',
+  rows: 'Specific rows (one task per tree)',
+  per_row: 'Per row (one task per row)',
+  trees: 'Specific trees',
 }
 
 interface TemplateFormProps {
@@ -200,7 +209,7 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
       <div className="space-y-2">
         <Label>Applies to</Label>
         <div className="space-y-1.5">
-          {(['all', 'rows', 'trees'] as const).map((scope) => (
+          {(['all', 'rows', 'per_row', 'trees'] as const).map((scope) => (
             <label key={scope} className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -209,14 +218,12 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
                 checked={targetScope === scope}
                 onChange={() => setTargetScope(scope)}
               />
-              <span className="text-sm text-stone-800 capitalize">
-                {scope === 'all' ? 'All trees' : scope === 'rows' ? 'Specific rows' : 'Specific trees'}
-              </span>
+              <span className="text-sm text-stone-800">{SCOPE_LABEL[scope]}</span>
             </label>
           ))}
         </div>
 
-        {targetScope === 'rows' && (
+        {(targetScope === 'rows' || targetScope === 'per_row') && (
           <div className="ml-5 space-y-1.5 mt-2 border-l border-stone-200 pl-3">
             {rows.length === 0 && <p className="text-xs text-stone-400">No rows yet</p>}
             {rows.map((row) => (
@@ -229,6 +236,11 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
                 <span className="text-sm text-stone-800">{row.label}</span>
               </label>
             ))}
+            {targetScope === 'per_row' && (
+              <p className="text-xs text-stone-400 mt-1">
+                One task per row. Completing it logs the activity on the row and on every tree in that row.
+              </p>
+            )}
           </div>
         )}
 

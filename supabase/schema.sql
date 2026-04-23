@@ -31,7 +31,7 @@ CREATE TABLE trees (
 CREATE TABLE logs (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tree_id     uuid NOT NULL REFERENCES trees(id) ON DELETE CASCADE,
-  log_type    text NOT NULL CHECK (log_type IN ('water','fertilize','production','note')),
+  log_type    text NOT NULL CHECK (log_type IN ('water','fertilize','production','note','scout','prune','mow')),
   quantity    numeric,
   unit        text,
   notes       text,
@@ -40,10 +40,39 @@ CREATE TABLE logs (
   created_at  timestamptz DEFAULT now()
 );
 
+CREATE TABLE row_logs (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  row_id      uuid NOT NULL REFERENCES rows(id) ON DELETE CASCADE,
+  log_type    text NOT NULL CHECK (log_type IN ('water','fertilize','production','note','scout','prune','mow')),
+  notes       text,
+  batch_id    uuid,
+  logged_at   timestamptz NOT NULL DEFAULT now(),
+  created_at  timestamptz DEFAULT now()
+);
+
+CREATE TABLE row_tasks (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  row_id             uuid NOT NULL REFERENCES rows(id) ON DELETE CASCADE,
+  template_id        uuid REFERENCES task_templates(id) ON DELETE CASCADE,
+  title              text NOT NULL,
+  log_type           text CHECK (log_type IS NULL OR log_type IN ('water','fertilize','production','note','scout','prune','mow')),
+  due_date           date,
+  completed_at       timestamptz,
+  completed_batch_id uuid,
+  period             text,
+  notes              text,
+  created_at         timestamptz DEFAULT now(),
+  UNIQUE (row_id, template_id, period)
+);
+
 -- Indexes
 CREATE INDEX ON logs(tree_id, logged_at DESC);
 CREATE INDEX ON trees(row_id, position);
 CREATE INDEX ON rows(orchard_id, sort_order);
+CREATE INDEX row_logs_row_id_idx   ON row_logs(row_id, logged_at DESC);
+CREATE INDEX row_logs_batch_id_idx ON row_logs(batch_id) WHERE batch_id IS NOT NULL;
+CREATE INDEX row_tasks_row_id_idx   ON row_tasks(row_id);
+CREATE INDEX row_tasks_due_date_idx ON row_tasks(due_date) WHERE completed_at IS NULL;
 
 -- ── Projects & Project Tasks (v3) ────────────────────────────────────────────
 

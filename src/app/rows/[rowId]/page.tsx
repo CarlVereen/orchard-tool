@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getRowWithTrees } from '@/lib/db/rows'
+import { getOpenRowTasksForRow } from '@/lib/db/row-tasks'
 import { RowDetail } from '@/components/orchard/RowDetail'
 
 interface RowPageProps {
@@ -12,6 +13,8 @@ export default async function RowPage({ params, searchParams }: RowPageProps) {
   const row = await getRowWithTrees(params.rowId).catch(() => null)
   if (!row) notFound()
 
+  const rowTasks = await getOpenRowTasksForRow(params.rowId)
+
   const addAtPosition = searchParams.add ? parseInt(searchParams.add) : undefined
 
   return (
@@ -22,7 +25,7 @@ export default async function RowPage({ params, searchParams }: RowPageProps) {
         <span className="text-stone-800">{row.label}</span>
       </div>
 
-      <RowDetail row={row} addAtPosition={addAtPosition} />
+      <RowDetail row={row} rowTasks={rowTasks} addAtPosition={addAtPosition} />
     </div>
   )
 }

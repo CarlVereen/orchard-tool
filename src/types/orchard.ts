@@ -1,4 +1,4 @@
-export type LogType = 'water' | 'fertilize' | 'production' | 'note' | 'scout' | 'prune'
+export type LogType = 'water' | 'fertilize' | 'production' | 'note' | 'scout' | 'prune' | 'mow'
 export type TreeCondition = 'good' | 'fair' | 'poor' | 'dead'
 
 export interface Orchard {
@@ -90,7 +90,7 @@ export interface LogWithTree extends Log {
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
-export type TaskTargetScope = 'all' | 'rows' | 'trees'
+export type TaskTargetScope = 'all' | 'rows' | 'trees' | 'per_row'
 
 export interface TaskTemplate {
   id: string
@@ -119,6 +119,30 @@ export interface TreeTask {
   completed_at: string | null
   period: string | null
   notes: string | null
+  created_at: string
+}
+
+export interface RowTask {
+  id: string
+  row_id: string
+  template_id: string | null
+  title: string
+  log_type: LogType | null
+  due_date: string | null
+  completed_at: string | null
+  completed_batch_id: string | null
+  period: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface RowLog {
+  id: string
+  row_id: string
+  log_type: LogType
+  notes: string | null
+  batch_id: string | null
+  logged_at: string
   created_at: string
 }
 
@@ -164,5 +188,6 @@ export interface DisplayTask extends ProjectTask {
   projectName: string
   projectType: ProjectType
   treeLabel?: string
-  source: 'project' | 'tree'
+  rowId?: string
+  source: 'project' | 'tree' | 'row'
 }

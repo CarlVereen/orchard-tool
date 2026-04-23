@@ -9,6 +9,8 @@ import {
   uncompleteProjectTaskAction,
   completeTreeTaskAction,
   uncompleteTreeTaskAction,
+  completeRowTaskAction,
+  uncompleteRowTaskAction,
 } from '@/lib/actions/tasks'
 import type { DisplayTask } from '@/types/orchard'
 
@@ -134,6 +136,11 @@ export function DailyViewClient({
           if (result.loggedCount > 0) {
             toast.success(`Logged ${result.logType}`)
           }
+        } else if (task?.source === 'row' && task.rowId) {
+          const result = await completeRowTaskAction(taskId, task.rowId)
+          if (result.loggedCount > 0 && result.logType) {
+            toast.success(`Logged ${result.logType} on row + ${result.loggedCount - 1} tree${result.loggedCount - 1 === 1 ? '' : 's'}`)
+          }
         } else {
           const result = await completeProjectTaskAction(taskId)
           if (result.loggedCount > 0) {
@@ -155,6 +162,8 @@ export function DailyViewClient({
       try {
         if (task?.source === 'tree') {
           await uncompleteTreeTaskAction(taskId)
+        } else if (task?.source === 'row' && task.rowId) {
+          await uncompleteRowTaskAction(taskId, task.rowId)
         } else {
           await uncompleteProjectTaskAction(taskId)
         }

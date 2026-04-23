@@ -109,7 +109,7 @@ export async function createTemplate(
     .single()
   if (error) throw error
 
-  if (fields.target_scope === 'rows' && rowIds.length > 0) {
+  if ((fields.target_scope === 'rows' || fields.target_scope === 'per_row') && rowIds.length > 0) {
     await supabase
       .from('task_template_rows')
       .insert(rowIds.map((row_id) => ({ template_id: data.id, row_id })))
@@ -137,7 +137,7 @@ export async function updateTemplate(
   await supabase.from('task_template_rows').delete().eq('template_id', id)
   await supabase.from('task_template_trees').delete().eq('template_id', id)
 
-  if (fields.target_scope === 'rows' && rowIds.length > 0) {
+  if ((fields.target_scope === 'rows' || fields.target_scope === 'per_row') && rowIds.length > 0) {
     await supabase
       .from('task_template_rows')
       .insert(rowIds.map((row_id) => ({ template_id: id, row_id })))
@@ -194,6 +194,15 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     period: string
   }[] = []
 
+  const rowTasksToInsert: {
+    row_id: string
+    template_id: string
+    title: string
+    log_type: LogType | null
+    due_date: string
+    period: string
+  }[] = []
+
   // ISO week number helper
   const isoWeek = (d: Date) => {
     const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
@@ -225,7 +234,7 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     // Determine target rows
     type RowWithTrees = { id: string; sort_order: number; trees: { id: string }[] }
     let targetRows: RowWithTrees[]
-    if (template.target_scope === 'rows') {
+    if (template.target_scope === 'rows' || template.target_scope === 'per_row') {
       targetRows = (rows as RowWithTrees[]).filter((r) => template.row_ids.includes(r.id))
     } else if (template.target_scope === 'trees') {
       targetRows = (rows as RowWithTrees[]).map((r) => ({
@@ -257,6 +266,18 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
         dueDate = `${currentYear}-${pad(currentMonth)}-01`
       }
 
+      if (template.target_scope === 'per_row') {
+        rowTasksToInsert.push({
+          row_id: row.id,
+          template_id: template.id,
+          title: template.title,
+          log_type: template.log_type,
+          due_date: dueDate,
+          period,
+        })
+        return
+      }
+
       for (const tree of row.trees) {
         tasksToInsert.push({
           tree_id: tree.id,
@@ -270,11 +291,17 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     })
   }
 
-  if (tasksToInsert.length === 0) return
+  if (tasksToInsert.length > 0) {
+    await supabase
+      .from('tree_tasks')
+      .upsert(tasksToInsert, { onConflict: 'tree_id,template_id,period', ignoreDuplicates: true })
+  }
 
-  await supabase
-    .from('tree_tasks')
-    .upsert(tasksToInsert, { onConflict: 'tree_id,template_id,period', ignoreDuplicates: true })
+  if (rowTasksToInsert.length > 0) {
+    await supabase
+      .from('row_tasks')
+      .upsert(rowTasksToInsert, { onConflict: 'row_id,template_id,period', ignoreDuplicates: true })
+  }
 }
 
 // ── Orchard-wide tree task queries ───────────────────────────────────────────
