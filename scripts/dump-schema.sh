@@ -2,6 +2,9 @@
 # Dump the live Supabase Postgres schema (public namespace) so you can
 # refresh supabase/schema.sql when the version-controlled copy drifts.
 #
+# Uses the Supabase CLI via npx, so nothing has to be installed
+# globally — npx fetches and caches the CLI on first run.
+#
 # This script writes to supabase/schema.dump.sql and never touches
 # supabase/schema.sql directly — review the dump first, then replace
 # manually if you're happy with it.
@@ -20,8 +23,8 @@ DATABASE_URL is not set. To get it:
   1. Open the Supabase dashboard for this project.
   2. Project Settings → Database → Connection string.
   3. Pick the entry labeled "Direct connection" (port 5432).
-     Do NOT use the connection pooler (port 6543) — pg_dump can't
-     speak the pooler's protocol.
+     Do NOT use the connection pooler (port 6543) — the dump needs a
+     real Postgres session, which the pooler doesn't support.
   4. Copy the URI. It looks like:
        postgresql://postgres:<your-password>@db.<ref>.supabase.co:5432/postgres
 
@@ -36,15 +39,11 @@ ERR
   exit 1
 fi
 
-if ! command -v pg_dump >/dev/null 2>&1; then
+if ! command -v npx >/dev/null 2>&1; then
   cat >&2 <<'ERR'
-pg_dump is not installed. On macOS the lightest install is libpq (the
-Postgres client tools, no server):
-
-  brew install libpq
-  brew link --force libpq
-
-Then re-run this script.
+npx is not on PATH. It ships with Node.js / npm, which the project
+already needs. If you're on a fresh shell, try opening a new terminal
+or installing Node from https://nodejs.org.
 ERR
   exit 1
 fi
@@ -52,19 +51,17 @@ fi
 if [[ "$DATABASE_URL" == *":6543"* || "$DATABASE_URL" == *"pgbouncer"* ]]; then
   cat >&2 <<'ERR'
 DATABASE_URL points at Supabase's connection pooler (pgbouncer, port
-6543). pg_dump can't use it. Switch to the direct connection — port
-5432 — from the same Supabase dashboard page.
+6543). The dump needs the direct connection — port 5432 — from the
+same Supabase dashboard page.
 ERR
   exit 1
 fi
 
-echo "→ Dumping public schema to $OUT"
-pg_dump \
-  --schema-only \
-  --schema=public \
-  --no-owner \
-  --no-privileges \
-  "$DATABASE_URL" > "$OUT"
+echo "→ Dumping public schema to $OUT (via npx supabase, may download CLI on first run)"
+npx --yes supabase db dump \
+  --db-url "$DATABASE_URL" \
+  --schema public \
+  -f "$OUT"
 
 cat <<MSG
 
