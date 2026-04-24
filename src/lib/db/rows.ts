@@ -44,11 +44,12 @@ export async function getRowWithTrees(rowId: string): Promise<RowWithTrees | nul
   const treeIds = (trees ?? []).map((t) => t.id)
   const lastLogByTreeId = new Map<string, Log>()
   if (treeIds.length > 0) {
-    const { data: allLogs } = await supabase
+    const { data: allLogs, error: logsError } = await supabase
       .from('logs')
       .select('*')
       .in('tree_id', treeIds)
       .order('logged_at', { ascending: false })
+    if (logsError) throw logsError
 
     for (const log of (allLogs ?? []) as Log[]) {
       if (!lastLogByTreeId.has(log.tree_id)) {

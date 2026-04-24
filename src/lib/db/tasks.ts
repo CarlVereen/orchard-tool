@@ -171,10 +171,12 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
   const activeTemplates = templates.filter((t) => t.active)
   if (activeTemplates.length === 0) return
 
-  // Fetch all rows with non-archived trees
+  // Fetch all rows with their non-archived trees (LEFT JOIN: rows with
+  // all-archived or no trees still appear with trees: [], so per_row tasks
+  // can still be generated for them).
   const { data: rows } = await supabase
     .from('rows')
-    .select('id, sort_order, trees!inner(id, row_id, archived_at)')
+    .select('id, sort_order, trees(id, row_id, archived_at)')
     .eq('orchard_id', orchardId)
     .is('trees.archived_at', null)
     .order('sort_order', { ascending: true })
@@ -205,12 +207,17 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
     period: string
   }[] = []
 
-  // ISO week number helper
-  const isoWeek = (d: Date) => {
+  // ISO-8601 week + year. The ISO year of a date can differ from its
+  // calendar year in late Dec / early Jan (e.g. 2024-12-30 is week 1 of
+  // ISO year 2025). Using the calendar year in the period key would
+  // collide across years.
+  const isoYearWeek = (d: Date) => {
     const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
     tmp.setUTCDate(tmp.getUTCDate() + 4 - (tmp.getUTCDay() || 7))
-    const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1))
-    return Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    const isoYear = tmp.getUTCFullYear()
+    const yearStart = new Date(Date.UTC(isoYear, 0, 1))
+    const week = Math.ceil(((tmp.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+    return { isoYear, week }
   }
 
   const ymd = (d: Date) =>
@@ -311,7 +318,8 @@ export async function generateTasksForCurrentPeriod(orchardId: string): Promise<
       period = String(currentYear)
       inWindow = currentMonth >= template.month_start && currentMonth <= template.month_end
     } else if (template.schedule_type === 'weekly') {
-      period = `${currentYear}-W${pad(isoWeek(now))}`
+      const { isoYear, week } = isoYearWeek(now)
+      period = `${isoYear}-W${pad(week)}`
       inWindow = true
     } else if (template.schedule_type === 'daily') {
       period = `${currentYear}-${pad(currentMonth)}-${pad(now.getDate())}`
