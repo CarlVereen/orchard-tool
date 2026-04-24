@@ -103,12 +103,15 @@ function TemplateForm({ orchardId, rows, allTrees, initial, onDone }: TemplateFo
     // Ensure stagger_by_row is serialised as string boolean
     if (!fd.has('stagger_by_row')) fd.set('stagger_by_row', 'false')
     try {
-      if (initial) {
-        await updateTemplateAction(initial.id, fd, selectedRowIds, selectedTreeIds)
+      const result = initial
+        ? await updateTemplateAction(initial.id, fd, selectedRowIds, selectedTreeIds)
+        : await createTemplateAction(orchardId, fd, selectedRowIds, selectedTreeIds)
+      if (result.ok) {
+        onDone()
       } else {
-        await createTemplateAction(orchardId, fd, selectedRowIds, selectedTreeIds)
+        setError(result.error)
+        setSaving(false)
       }
-      onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
       setSaving(false)

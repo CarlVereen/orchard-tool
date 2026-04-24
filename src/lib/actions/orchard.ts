@@ -298,31 +298,47 @@ function parseScheduleFields(formData: FormData) {
   }
 }
 
+export type TemplateActionResult = { ok: true } | { ok: false; error: string }
+
+function extractErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message?: unknown }).message
+    if (typeof m === 'string' && m.length > 0) return m
+  }
+  return 'Save failed'
+}
+
 export async function createTemplateAction(
   orchardId: string,
   formData: FormData,
   rowIds: string[],
   treeIds: string[]
-) {
-  const title = (formData.get('title') as string)?.trim()
-  if (!title) throw new Error('Template title is required')
-  const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
-  const logType = (formData.get('log_type') as LogType | '') || null
+): Promise<TemplateActionResult> {
+  try {
+    const title = (formData.get('title') as string)?.trim()
+    if (!title) return { ok: false, error: 'Template title is required' }
+    const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
+    const logType = (formData.get('log_type') as LogType | '') || null
 
-  await createTemplate(
-    orchardId,
-    {
-      title,
-      description: (formData.get('description') as string)?.trim() || null,
-      ...parseScheduleFields(formData),
-      target_scope: targetScope,
-      log_type: logType || null,
-      active: true,
-    },
-    rowIds,
-    treeIds
-  )
-  revalidatePath('/settings/tasks')
+    await createTemplate(
+      orchardId,
+      {
+        title,
+        description: (formData.get('description') as string)?.trim() || null,
+        ...parseScheduleFields(formData),
+        target_scope: targetScope,
+        log_type: logType || null,
+        active: true,
+      },
+      rowIds,
+      treeIds
+    )
+    revalidatePath('/settings/tasks')
+    return { ok: true }
+  } catch (err) {
+    console.error('createTemplateAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
 export async function updateTemplateAction(
@@ -330,26 +346,32 @@ export async function updateTemplateAction(
   formData: FormData,
   rowIds: string[],
   treeIds: string[]
-) {
-  const title = (formData.get('title') as string)?.trim()
-  if (!title) throw new Error('Template title is required')
-  const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
-  const logType = (formData.get('log_type') as LogType | '') || null
+): Promise<TemplateActionResult> {
+  try {
+    const title = (formData.get('title') as string)?.trim()
+    if (!title) return { ok: false, error: 'Template title is required' }
+    const targetScope = (formData.get('target_scope') as TaskTargetScope) || 'all'
+    const logType = (formData.get('log_type') as LogType | '') || null
 
-  await updateTemplate(
-    templateId,
-    {
-      title,
-      description: (formData.get('description') as string)?.trim() || null,
-      ...parseScheduleFields(formData),
-      target_scope: targetScope,
-      log_type: logType || null,
-      active: formData.get('active') !== 'false',
-    },
-    rowIds,
-    treeIds
-  )
-  revalidatePath('/settings/tasks')
+    await updateTemplate(
+      templateId,
+      {
+        title,
+        description: (formData.get('description') as string)?.trim() || null,
+        ...parseScheduleFields(formData),
+        target_scope: targetScope,
+        log_type: logType || null,
+        active: formData.get('active') !== 'false',
+      },
+      rowIds,
+      treeIds
+    )
+    revalidatePath('/settings/tasks')
+    return { ok: true }
+  } catch (err) {
+    console.error('updateTemplateAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
 export async function toggleTemplateActiveAction(templateId: string, active: boolean) {
