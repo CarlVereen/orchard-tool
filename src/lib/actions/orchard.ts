@@ -71,7 +71,9 @@ export async function createTreeAction(rowId: string, formData: FormData) {
   const species = formData.get('species') as string | undefined
   const plantedAt = formData.get('planted_at') as string | undefined
   const notes = formData.get('notes') as string | undefined
-  if (!position) throw new Error('Position is required')
+  if (!Number.isInteger(position) || position < 1) {
+    throw new Error('Position must be a positive whole number')
+  }
   const tree = await createTree(rowId, position, {
     variety: variety?.trim() || undefined,
     species: species?.trim() || undefined,
@@ -127,7 +129,9 @@ export async function archiveTreeAction(treeId: string, rowId: string, formData:
 
 export async function moveTreeAction(treeId: string, oldRowId: string, newRowId: string, newPosition: number) {
   if (!newRowId) throw new Error('Target row is required')
-  if (!newPosition || isNaN(newPosition)) throw new Error('Position is required')
+  if (!Number.isInteger(newPosition) || newPosition < 1) {
+    throw new Error('Position must be a positive whole number')
+  }
   await moveTree(treeId, newRowId, newPosition)
   revalidatePath(`/rows/${oldRowId}`)
   revalidatePath(`/rows/${newRowId}`)
@@ -146,14 +150,18 @@ export async function addLogAction(treeId: string, rowId: string, formData: Form
   const severityRaw = formData.get('severity') as string | undefined
 
   if (!logType) throw new Error('Log type is required')
+  const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
+  const severity = severityRaw ? parseInt(severityRaw) : NaN
+  if (quantityRaw && !Number.isFinite(quantity)) throw new Error('Quantity must be a number')
+  if (severityRaw && !Number.isFinite(severity)) throw new Error('Severity must be a whole number')
 
   await insertLog(treeId, logType, {
-    quantity: quantityRaw ? parseFloat(quantityRaw) : undefined,
+    quantity: Number.isFinite(quantity) ? quantity : undefined,
     unit: unit?.trim() || undefined,
     notes: notes?.trim() || undefined,
     loggedAt: loggedAt || undefined,
     target: target?.trim() || undefined,
-    severity: severityRaw ? parseInt(severityRaw) : undefined,
+    severity: Number.isFinite(severity) ? severity : undefined,
   })
 
   revalidatePath(`/trees/${treeId}`)
@@ -172,14 +180,18 @@ export async function addBulkLogAction(treeIds: string[], orchardRowId: string, 
 
   if (!logType) throw new Error('Log type is required')
   if (treeIds.length === 0) throw new Error('No trees selected')
+  const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
+  const severity = severityRaw ? parseInt(severityRaw) : NaN
+  if (quantityRaw && !Number.isFinite(quantity)) throw new Error('Quantity must be a number')
+  if (severityRaw && !Number.isFinite(severity)) throw new Error('Severity must be a whole number')
 
   await insertLogsForTrees(treeIds, logType, {
-    quantity: quantityRaw ? parseFloat(quantityRaw) : undefined,
+    quantity: Number.isFinite(quantity) ? quantity : undefined,
     unit: unit?.trim() || undefined,
     notes: notes?.trim() || undefined,
     loggedAt: loggedAt || undefined,
     target: target?.trim() || undefined,
-    severity: severityRaw ? parseInt(severityRaw) : undefined,
+    severity: Number.isFinite(severity) ? severity : undefined,
   })
 
   revalidatePath(`/rows/${orchardRowId}`)
