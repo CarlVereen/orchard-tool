@@ -43,14 +43,23 @@ export function RowDetail({ row, rowTasks, addAtPosition }: RowDetailProps) {
     setCompletingId(taskId)
     setTasks((prev) => prev.filter((t) => t.id !== taskId))
     startTransition(async () => {
+      const restoreOnFailure = () => {
+        setTasks((prev) => [
+          ...prev,
+          ...rowTasks.filter((t) => t.id === taskId && !prev.some((p) => p.id === taskId)),
+        ])
+      }
       try {
         const result = await completeRowTaskAction(taskId, row.id)
-        if (result.loggedCount > 0 && result.logType) {
+        if (!result.ok) {
+          toast.error(result.error)
+          restoreOnFailure()
+        } else if (result.loggedCount > 0 && result.logType) {
           toast.success(`Logged ${result.logType} on row and ${result.loggedCount - 1} tree${result.loggedCount - 1 === 1 ? '' : 's'}`)
         }
-      } catch {
-        toast.error('Failed to complete row task')
-        setTasks((prev) => [...prev, ...rowTasks.filter((t) => t.id === taskId && !prev.some((p) => p.id === taskId))])
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to complete row task')
+        restoreOnFailure()
       } finally {
         setCompletingId(null)
       }

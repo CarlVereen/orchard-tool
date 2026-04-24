@@ -133,22 +133,28 @@ export function DailyViewClient({
       try {
         if (task?.source === 'tree') {
           const result = await completeTreeTaskAction(taskId)
-          if (result.loggedCount > 0) {
+          if (!result.ok) {
+            toast.error(result.error)
+          } else if (result.loggedCount > 0) {
             toast.success(`Logged ${result.logType}`)
           }
         } else if (task?.source === 'row' && task.rowId) {
           const result = await completeRowTaskAction(taskId, task.rowId)
-          if (result.loggedCount > 0 && result.logType) {
+          if (!result.ok) {
+            toast.error(result.error)
+          } else if (result.loggedCount > 0 && result.logType) {
             toast.success(`Logged ${result.logType} on row + ${result.loggedCount - 1} tree${result.loggedCount - 1 === 1 ? '' : 's'}`)
           }
         } else {
           const result = await completeProjectTaskAction(taskId)
-          if (result.loggedCount > 0) {
+          if (!result.ok) {
+            toast.error(result.error)
+          } else if (result.loggedCount > 0) {
             toast.success(`Logged ${result.logType} on ${result.species} tree`)
           }
         }
-      } catch {
-        toast.error('Failed to complete task')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to complete task')
       } finally {
         setCompletingId(null)
       }
@@ -160,15 +166,15 @@ export function DailyViewClient({
     startTransition(async () => {
       addOptimistic({ type: 'uncomplete', taskId })
       try {
-        if (task?.source === 'tree') {
-          await uncompleteTreeTaskAction(taskId)
-        } else if (task?.source === 'row' && task.rowId) {
-          await uncompleteRowTaskAction(taskId, task.rowId)
-        } else {
-          await uncompleteProjectTaskAction(taskId)
-        }
-      } catch {
-        toast.error('Failed to undo completion')
+        const result =
+          task?.source === 'tree'
+            ? await uncompleteTreeTaskAction(taskId)
+            : task?.source === 'row' && task.rowId
+              ? await uncompleteRowTaskAction(taskId, task.rowId)
+              : await uncompleteProjectTaskAction(taskId)
+        if (!result.ok) toast.error(result.error)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to undo completion')
       }
     })
   }

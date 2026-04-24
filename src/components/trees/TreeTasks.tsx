@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -68,7 +69,10 @@ export function TreeTasks({ treeId, rowId, initialTasks, projectTasks }: TreeTas
   const handleCompleteProjectTask = async (taskId: string) => {
     setCompleting(taskId)
     try {
-      await completeProjectTaskAction(taskId)
+      const result = await completeProjectTaskAction(taskId)
+      if (!result.ok) toast.error(result.error)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to complete task')
     } finally {
       setCompleting(null)
     }
@@ -77,7 +81,10 @@ export function TreeTasks({ treeId, rowId, initialTasks, projectTasks }: TreeTas
   const handleUncompleteProjectTask = async (taskId: string) => {
     setCompleting(taskId)
     try {
-      await uncompleteProjectTaskAction(taskId)
+      const result = await uncompleteProjectTaskAction(taskId)
+      if (!result.ok) toast.error(result.error)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to undo')
     } finally {
       setCompleting(null)
     }

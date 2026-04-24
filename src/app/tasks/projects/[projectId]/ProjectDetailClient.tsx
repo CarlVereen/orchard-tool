@@ -35,11 +35,13 @@ export function ProjectDetailClient({ projectId, tasks, projectType }: ProjectDe
     startTransition(async () => {
       try {
         const result = await completeProjectTaskAction(taskId)
-        if (result.loggedCount > 0) {
+        if (!result.ok) {
+          toast.error(result.error)
+        } else if (result.loggedCount > 0) {
           toast.success(`Logged ${result.logType} on ${result.loggedCount} tree${result.loggedCount === 1 ? '' : 's'}`)
         }
-      } catch {
-        toast.error('Failed to complete task')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to complete task')
       } finally {
         setCompletingId(null)
       }
@@ -49,9 +51,10 @@ export function ProjectDetailClient({ projectId, tasks, projectType }: ProjectDe
   const handleUncomplete = (taskId: string) => {
     startTransition(async () => {
       try {
-        await uncompleteProjectTaskAction(taskId)
-      } catch {
-        toast.error('Failed to undo')
+        const result = await uncompleteProjectTaskAction(taskId)
+        if (!result.ok) toast.error(result.error)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to undo')
       }
     })
   }

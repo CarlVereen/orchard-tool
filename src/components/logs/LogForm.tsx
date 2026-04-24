@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { SubmitButton } from '@/components/ui/submit-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { LogTypeIcon } from './LogTypeIcon'
+import type { ActionFailure } from '@/lib/errors'
 import type { LogType } from '@/types/orchard'
 
 const LOG_TYPES: LogType[] = ['water', 'fertilize', 'production', 'prune', 'mow', 'scout', 'note']
@@ -22,7 +22,7 @@ const LOG_LABELS: Record<LogType, string> = {
 }
 
 interface LogFormProps {
-  action: (formData: FormData) => Promise<void>
+  action: (formData: FormData) => Promise<{ ok: true } | ActionFailure>
   onSuccess?: () => void
   submitLabel?: string
 }
@@ -30,18 +30,36 @@ interface LogFormProps {
 export function LogForm({ action, onSuccess, submitLabel = 'Add Log' }: LogFormProps) {
   const [logType, setLogType] = useState<LogType>('water')
   const [severity, setSeverity] = useState<number>(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const showQuantity = logType === 'production' || logType === 'fertilize'
   const showScout = logType === 'scout'
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+    const fd = new FormData(e.currentTarget)
+    fd.append('log_type', logType)
+    if (showScout) fd.append('severity', String(severity))
+    try {
+      const result = await action(fd)
+      if (result.ok) {
+        onSuccess?.()
+      } else {
+        setError(result.error)
+        setSubmitting(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save log')
+      setSubmitting(false)
+    }
+  }
+
   return (
     <form
-      action={async (fd) => {
-        fd.append('log_type', logType)
-        if (showScout) fd.append('severity', String(severity))
-        await action(fd)
-        onSuccess?.()
-      }}
+      onSubmit={handleSubmit}
       className="space-y-5"
     >
       {/* Log type selector — 3-col grid (2 rows of 3) */}
@@ -153,9 +171,11 @@ export function LogForm({ action, onSuccess, submitLabel = 'Add Log' }: LogFormP
         />
       </div>
 
-      <SubmitButton className="w-full">
+      {error && <p className="text-sm text-red-500">{error}</p>}
+
+      <Button type="submit" disabled={submitting} className="w-full">
         {submitLabel}
-      </SubmitButton>
+      </Button>
     </form>
   )
 }

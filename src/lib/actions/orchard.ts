@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createOrchard, updateOrchard } from '@/lib/db/orchards'
 import { createRow, updateRow, deleteRow } from '@/lib/db/rows'
 import { createTree, updateTree, deleteTree, archiveTree, moveTree } from '@/lib/db/trees'
@@ -19,48 +18,88 @@ import {
   deleteTemplate,
 } from '@/lib/db/tasks'
 import type { LogType, TreeCondition, TaskTargetScope, TaskScheduleType } from '@/types/orchard'
+import { type ActionFailure, extractErrorMessage } from '@/lib/errors'
 
 // ── Orchard ──────────────────────────────────────────────────────────────────
 
-export async function setupOrchardAction(formData: FormData) {
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string | undefined
-  if (!name?.trim()) throw new Error('Orchard name is required')
-  await createOrchard(name.trim(), description?.trim() || undefined)
-  redirect('/')
+export async function setupOrchardAction(
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string | undefined
+    if (!name?.trim()) return { ok: false, error: 'Orchard name is required' }
+    await createOrchard(name.trim(), description?.trim() || undefined)
+    revalidatePath('/')
+    return { ok: true }
+  } catch (err) {
+    console.error('setupOrchardAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
-export async function updateOrchardAction(id: string, formData: FormData) {
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string | undefined
-  if (!name?.trim()) throw new Error('Orchard name is required')
-  await updateOrchard(id, { name: name.trim(), description: description?.trim() ?? null })
-  revalidatePath('/')
+export async function updateOrchardAction(
+  id: string,
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string | undefined
+    if (!name?.trim()) return { ok: false, error: 'Orchard name is required' }
+    await updateOrchard(id, { name: name.trim(), description: description?.trim() ?? null })
+    revalidatePath('/')
+    return { ok: true }
+  } catch (err) {
+    console.error('updateOrchardAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────────
 
-export async function createRowAction(orchardId: string, formData: FormData) {
-  const label = formData.get('label') as string
-  const sortOrder = parseInt(formData.get('sort_order') as string) || 0
-  if (!label?.trim()) throw new Error('Row label is required')
-  const row = await createRow(orchardId, label.trim(), sortOrder)
-  revalidatePath('/')
-  return row
+export async function createRowAction(
+  orchardId: string,
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const label = formData.get('label') as string
+    const sortOrder = parseInt(formData.get('sort_order') as string) || 0
+    if (!label?.trim()) return { ok: false, error: 'Row label is required' }
+    await createRow(orchardId, label.trim(), sortOrder)
+    revalidatePath('/')
+    return { ok: true }
+  } catch (err) {
+    console.error('createRowAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
-export async function updateRowAction(rowId: string, formData: FormData) {
-  const label = formData.get('label') as string
-  if (!label?.trim()) throw new Error('Row label is required')
-  await updateRow(rowId, { label: label.trim() })
-  revalidatePath('/')
-  revalidatePath(`/rows/${rowId}`)
+export async function updateRowAction(
+  rowId: string,
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const label = formData.get('label') as string
+    if (!label?.trim()) return { ok: false, error: 'Row label is required' }
+    await updateRow(rowId, { label: label.trim() })
+    revalidatePath('/')
+    revalidatePath(`/rows/${rowId}`)
+    return { ok: true }
+  } catch (err) {
+    console.error('updateRowAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
-export async function deleteRowAction(rowId: string) {
-  await deleteRow(rowId)
-  revalidatePath('/')
-  redirect('/')
+export async function deleteRowAction(rowId: string): Promise<{ ok: true } | ActionFailure> {
+  try {
+    await deleteRow(rowId)
+    revalidatePath('/')
+    return { ok: true }
+  } catch (err) {
+    console.error('deleteRowAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
 // ── Trees ────────────────────────────────────────────────────────────────────
@@ -140,63 +179,83 @@ export async function moveTreeAction(treeId: string, oldRowId: string, newRowId:
 
 // ── Logs ─────────────────────────────────────────────────────────────────────
 
-export async function addLogAction(treeId: string, rowId: string, formData: FormData) {
-  const logType = formData.get('log_type') as LogType
-  const quantityRaw = formData.get('quantity') as string | undefined
-  const unit = formData.get('unit') as string | undefined
-  const notes = formData.get('notes') as string | undefined
-  const loggedAt = formData.get('logged_at') as string | undefined
-  const target = formData.get('target') as string | undefined
-  const severityRaw = formData.get('severity') as string | undefined
+export async function addLogAction(
+  treeId: string,
+  rowId: string,
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const logType = formData.get('log_type') as LogType
+    const quantityRaw = formData.get('quantity') as string | undefined
+    const unit = formData.get('unit') as string | undefined
+    const notes = formData.get('notes') as string | undefined
+    const loggedAt = formData.get('logged_at') as string | undefined
+    const target = formData.get('target') as string | undefined
+    const severityRaw = formData.get('severity') as string | undefined
 
-  if (!logType) throw new Error('Log type is required')
-  const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
-  const severity = severityRaw ? parseInt(severityRaw) : NaN
-  if (quantityRaw && !Number.isFinite(quantity)) throw new Error('Quantity must be a number')
-  if (severityRaw && !Number.isFinite(severity)) throw new Error('Severity must be a whole number')
+    if (!logType) return { ok: false, error: 'Log type is required' }
+    const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
+    const severity = severityRaw ? parseInt(severityRaw) : NaN
+    if (quantityRaw && !Number.isFinite(quantity)) return { ok: false, error: 'Quantity must be a number' }
+    if (severityRaw && !Number.isFinite(severity)) return { ok: false, error: 'Severity must be a whole number' }
 
-  await insertLog(treeId, logType, {
-    quantity: Number.isFinite(quantity) ? quantity : undefined,
-    unit: unit?.trim() || undefined,
-    notes: notes?.trim() || undefined,
-    loggedAt: loggedAt || undefined,
-    target: target?.trim() || undefined,
-    severity: Number.isFinite(severity) ? severity : undefined,
-  })
+    await insertLog(treeId, logType, {
+      quantity: Number.isFinite(quantity) ? quantity : undefined,
+      unit: unit?.trim() || undefined,
+      notes: notes?.trim() || undefined,
+      loggedAt: loggedAt || undefined,
+      target: target?.trim() || undefined,
+      severity: Number.isFinite(severity) ? severity : undefined,
+    })
 
-  revalidatePath(`/trees/${treeId}`)
-  revalidatePath(`/rows/${rowId}`)
-  revalidatePath('/')
+    revalidatePath(`/trees/${treeId}`)
+    revalidatePath(`/rows/${rowId}`)
+    revalidatePath('/')
+    return { ok: true }
+  } catch (err) {
+    console.error('addLogAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
-export async function addBulkLogAction(treeIds: string[], orchardRowId: string, formData: FormData) {
-  const logType = formData.get('log_type') as LogType
-  const quantityRaw = formData.get('quantity') as string | undefined
-  const unit = formData.get('unit') as string | undefined
-  const notes = formData.get('notes') as string | undefined
-  const loggedAt = formData.get('logged_at') as string | undefined
-  const target = formData.get('target') as string | undefined
-  const severityRaw = formData.get('severity') as string | undefined
+export async function addBulkLogAction(
+  treeIds: string[],
+  orchardRowId: string,
+  formData: FormData
+): Promise<{ ok: true } | ActionFailure> {
+  try {
+    const logType = formData.get('log_type') as LogType
+    const quantityRaw = formData.get('quantity') as string | undefined
+    const unit = formData.get('unit') as string | undefined
+    const notes = formData.get('notes') as string | undefined
+    const loggedAt = formData.get('logged_at') as string | undefined
+    const target = formData.get('target') as string | undefined
+    const severityRaw = formData.get('severity') as string | undefined
 
-  if (!logType) throw new Error('Log type is required')
-  if (treeIds.length === 0) throw new Error('No trees selected')
-  const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
-  const severity = severityRaw ? parseInt(severityRaw) : NaN
-  if (quantityRaw && !Number.isFinite(quantity)) throw new Error('Quantity must be a number')
-  if (severityRaw && !Number.isFinite(severity)) throw new Error('Severity must be a whole number')
+    if (!logType) return { ok: false, error: 'Log type is required' }
+    if (treeIds.length === 0) return { ok: false, error: 'No trees selected' }
+    const quantity = quantityRaw ? parseFloat(quantityRaw) : NaN
+    const severity = severityRaw ? parseInt(severityRaw) : NaN
+    if (quantityRaw && !Number.isFinite(quantity)) return { ok: false, error: 'Quantity must be a number' }
+    if (severityRaw && !Number.isFinite(severity)) return { ok: false, error: 'Severity must be a whole number' }
 
-  await insertLogsForTrees(treeIds, logType, {
-    quantity: Number.isFinite(quantity) ? quantity : undefined,
-    unit: unit?.trim() || undefined,
-    notes: notes?.trim() || undefined,
-    loggedAt: loggedAt || undefined,
-    target: target?.trim() || undefined,
-    severity: Number.isFinite(severity) ? severity : undefined,
-  })
+    await insertLogsForTrees(treeIds, logType, {
+      quantity: Number.isFinite(quantity) ? quantity : undefined,
+      unit: unit?.trim() || undefined,
+      notes: notes?.trim() || undefined,
+      loggedAt: loggedAt || undefined,
+      target: target?.trim() || undefined,
+      severity: Number.isFinite(severity) ? severity : undefined,
+    })
 
-  revalidatePath(`/rows/${orchardRowId}`)
-  revalidatePath('/')
-  treeIds.forEach((id) => revalidatePath(`/trees/${id}`))
+    revalidatePath(`/rows/${orchardRowId}`)
+    revalidatePath('/')
+    treeIds.forEach((id) => revalidatePath(`/trees/${id}`))
+    return { ok: true }
+  } catch (err) {
+    console.error('addBulkLogAction failed', err)
+    return { ok: false, error: extractErrorMessage(err) }
+  }
 }
 
 export async function deleteLogAction(logId: string, treeId: string, rowId: string) {
@@ -310,15 +369,7 @@ function parseScheduleFields(formData: FormData) {
   }
 }
 
-export type TemplateActionResult = { ok: true } | { ok: false; error: string }
-
-function extractErrorMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    const m = (err as { message?: unknown }).message
-    if (typeof m === 'string' && m.length > 0) return m
-  }
-  return 'Save failed'
-}
+export type TemplateActionResult = { ok: true } | ActionFailure
 
 export async function createTemplateAction(
   orchardId: string,
