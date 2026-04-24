@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pg_dump output (regenerated via scripts/dump-schema.sh)
+supabase/schema.dump.sql
